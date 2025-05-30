@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RayGroove | 空に物語を描く ドローンショーサービス</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --main-bg-color: #060d1f;
+            --secondary-bg-color: #0c1631;
+            --accent-color: #4e6fff;
+            --neon-color: #7d4dff;
+            --text-color: #ffffff;
+            --text-secondary: #a0aec0;
+        }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: var(--main-bg-color);
+            color: var(--text-color);
+            font-family: 'Noto Sans JP', 'Roboto', sans-serif;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+        
+        .slide {
+            min-height: 100vh;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        
+        .slide-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .bg-gradient {
+            background: linear-gradient(135deg, var(--main-bg-color), var(--secondary-bg-color));
+        }
+        
+        .title {
+            font-weight: 700;
+            background: linear-gradient(90deg, #ffffff, #7d4dff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(125, 77, 255, 0.5);
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+        
+        .neon-text {
+            color: var(--neon-color);
+            text-shadow: 0 0 5px var(--neon-color);
+        }
+        
+        .neon-border {
+            border: 2px solid var(--neon-color);
+            box-shadow: 0 0 10px var(--neon-color);
+        }
+        
+        .panel {
+            background-color: rgba(12, 22, 49, 0.7);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(78, 111, 255, 0.1);
+        }
+        
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)),
+                radial-gradient(2px 2px at 40px 70px, #ffffff, rgba(0, 0, 0, 0)),
+                radial-gradient(2px 2px at 50px 160px, #ffffff, rgba(0, 0, 0, 0)),
+                radial-gradient(2px 2px at 90px 40px, #ffffff, rgba(0, 0, 0, 0)),
+                radial-gradient(2px 2px at 130px 80px, #ffffff, rgba(0, 0, 0, 0)),
+                radial-gradient(2px 2px at 160px 120px, #ffffff, rgba(0, 0, 0, 0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+        }
+        
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(78, 111, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(78, 111, 255, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        
+        .drone-path {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.4;
+            background: linear-gradient(45deg, 
+                rgba(78, 111, 255, 0) 0%, 
+                rgba(78, 111, 255, 0.1) 50%, 
+                rgba(78, 111, 255, 0) 100%);
+            clip-path: polygon(
+                10% 90%, 
+                30% 60%, 
+                50% 30%, 
+                70% 60%, 
+                90% 20%, 
+                100% 0%, 
+                100% 100%, 
+                0% 100%
+            );
+        }
+        
+        .timeline-step {
+            position: relative;
+            padding-left: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .timeline-step::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 5px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            box-shadow: 0 0 10px var(--neon-color);
+            z-index: 2;
+        }
+        
+        .timeline-step::after {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 20px;
+            width: 1px;
+            height: calc(100% + 10px);
+            background-color: var(--accent-color);
+            opacity: 0.5;
+            z-index: 1;
+        }
+        
+        .timeline-step:last-child::after {
+            display: none;
+        }
+        
+        .feature-card {
+            border-radius: 8px;
+            background-color: rgba(12, 22, 49, 0.9);
+            border: 1px solid rgba(78, 111, 255, 0.3);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 20px rgba(125, 77, 255, 0.4);
+        }
+        
+        .table-row {
+            border-bottom: 1px solid rgba(78, 111, 255, 0.3);
+        }
+        
+        .table-row:last-child {
+            border-bottom: none;
+        }
+        
+        .drone-icon {
+            position: absolute;
+            opacity: 0.7;
+            animation: float 4s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .price-table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+        }
+        
+        .price-table th, .price-table td {
+            border: 1px solid rgba(78, 111, 255, 0.3);
+            padding: 10px;
+        }
+        
+        .price-table th {
+            background-color: rgba(78, 111, 255, 0.2);
+            color: white;
+        }
+        
+        .team-card {
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: rgba(12, 22, 49, 0.7);
+            border: 1px solid rgba(78, 111, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .team-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px rgba(125, 77, 255, 0.3);
+        }
+        
+        .cover-bg {
+            background-image: url('https://droneshow.co.jp/wp-content/uploads/2025/03/top_slideshow4.png');
+            background-size: cover;
+            background-position: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.4;
+        }
+        
+        .section-title {
+            position: relative;
+            display: inline-block;
+            padding-bottom: 10px;
+        }
+        
+        .section-title:after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 40%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-color), transparent);
+        }
+        
+        #nav-dots {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-dot.active {
+            background-color: var(--neon-color);
+            box-shadow: 0 0 10px var(--neon-color);
+        }
+        
+        .slide-counter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(12, 22, 49, 0.7);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            z-index: 100;
+        }
+        
+        .scroll-indicator {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0) translateX(-50%); }
+            40% { transform: translateY(-20px) translateX(-50%); }
+            60% { transform: translateY(-10px) translateX(-50%); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Dots -->
+    <div id="nav-dots">
+        <div class="nav-dot" data-slide="1"></div>
+        <div class="nav-dot" data-slide="2"></div>
+        <div class="nav-dot" data-slide="3"></div>
+        <div class="nav-dot" data-slide="4"></div>
+        <div class="nav-dot" data-slide="5"></div>
+        <div class="nav-dot" data-slide="6"></div>
+        <div class="nav-dot" data-slide="7"></div>
+        <div class="nav-dot" data-slide="8"></div>
+        <div class="nav-dot" data-slide="9"></div>
+        <div class="nav-dot" data-slide="10"></div>
+        <div class="nav-dot" data-slide="11"></div>
+        <div class="nav-dot" data-slide="12"></div>
+    </div>
+
+    <div class="slide-counter">
+        <span id="current-slide">1</span>/<span id="total-slides">12</span>
+    </div>
+
+    <!-- Slide 1: Cover -->
+    <section id="slide1" class="slide bg-gradient">
+        <div class="cover-bg"></div>
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        <div class="drone-path"></div>
+        
+        <div class="slide-content flex flex-col items-center justify-center text-center">
+            <div class="logo mb-6">
+                <img src="" alt="" class="w-32 h-32 opacity-0">
+            </div>
+            <h1 class="title text-6xl md:text-8xl mb-4">RayGroove</h1>
+            <p class="subtitle text-xl md:text-3xl mb-8 tracking-widest">空に物語を描く。</p>
+            <p class="text-lg md:text-xl text-gray-300 mt-6">株式会社Active Seek</p>
+        </div>
+        
+        <div class="scroll-indicator">
+            <i class="fas fa-chevron-down text-white text-2xl opacity-70"></i>
+        </div>
+    </section>
+
+    <!-- Slide 2: Concept -->
+    <section id="slide2" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content flex flex-col md:flex-row">
+            <div class="md:w-1/2 mb-10 md:mb-0">
+                <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">
+                    空に物語を描く。
+                </h2>
+                <p class="text-lg md:text-xl leading-relaxed mb-6">
+                    夜空をキャンバスに、デジタル技術で物語を描き出します。RayGrooveは最新のドローン技術とクリエイティブ演出力で、観る人の心に残るストーリーを空に創り上げます。
+                </p>
+                <p class="text-lg md:text-xl leading-relaxed">
+                    単なる光のショーではなく、<span class="neon-text font-bold">ストーリー性のある演出</span>で観客に感動体験を提供します。
+                    <span class="neon-text font-bold">デジタル × 感動 × 物語</span>が融合した新たなエンターテイメントの世界へ。
+                </p>
+            </div>
+            <div class="md:w-1/2 flex justify-center items-center">
+                <div class="relative w-full h-80 md:h-96">
+                    <img src="https://page1.genspark.site/v1/base64_upload/426f1e2e02dc9fe156fc5865fa561cbf" alt="ドローンショーの光の軌跡" class="w-full h-full object-cover rounded-lg shadow-2xl">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-50 rounded-lg"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 3: Service Overview -->
+    <section id="slide3" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">サービス概要</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="panel">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-4">
+                            <i class="fas fa-drone text-2xl text-blue-400"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">ドローンショーとは</h3>
+                    </div>
+                    <p class="text-gray-300">
+                        無数のLED搭載ドローンを夜空に飛ばし、プログラムされた光のパターンで人々を魅了する最先端エンターテインメント。花火や音楽とのコラボレーションにより壮大な演出が可能です。
+                    </p>
+                </div>
+                
+                <div class="panel">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-purple-500 bg-opacity-20 flex items-center justify-center mr-4">
+                            <i class="fas fa-film text-2xl text-purple-400"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">演出の特徴</h3>
+                    </div>
+                    <p class="text-gray-300">
+                        RayGrooveは単なる点の集合ではなく、一連の流れやテーマを持ったショーを作り上げます。物語性を重視した構成と高度なデザイン力により、他社と差別化された感動体験を提供します。
+                    </p>
+                </div>
+                
+                <div class="panel">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-indigo-500 bg-opacity-20 flex items-center justify-center mr-4">
+                            <i class="fas fa-lightbulb text-2xl text-indigo-400"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">RayGrooveの思想</h3>
+                    </div>
+                    <p class="text-gray-300">
+                        <span class="neon-text font-bold">「夜空のキャンバスに新しい感動体験を創出する」</span>エンターテイメント業界で長年活躍したプロフェッショナルメンバーが集結して創造性をドローンショー事業に活かしています。
+                    </p>
+                </div>
+            </div>
+            
+            <div class="mt-10">
+                <img src="https://page1.genspark.site/v1/base64_upload/10e2d87222f96ac2e49ba5563faab32d" alt="ドローンショーイメージ" class="w-full h-64 object-cover rounded-lg shadow-2xl">
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 4: Strengths -->
+    <section id="slide4" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">RayGrooveの強み</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="feature-card h-full">
+                    <div class="h-16 flex items-center mb-4">
+                        <i class="fas fa-book-open text-4xl text-blue-400 mr-4"></i>
+                        <h3 class="text-xl font-bold">ストーリー設計・デザイン力</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">
+                        RayGrooveでは一連のストーリー展開（起承転結やテーマ性）を重視し、観客が物語を見るような体験を提供します。
+                    </p>
+                    <p class="text-gray-300">
+                        広告代理店であるActive Seekならではの企画力・脚本力で、ブランドメッセージや地域の物語を空に描くことを得意としています。
+                    </p>
+                </div>
+                
+                <div class="feature-card h-full">
+                    <div class="h-16 flex items-center mb-4">
+                        <i class="fas fa-link text-4xl text-purple-400 mr-4"></i>
+                        <h3 class="text-xl font-bold">イベント＋Web PR連携</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">
+                        ショーの実施だけでなく、その前後のプロモーション設計までサポートできる点が強みです。ドローンショーをイベント当日の一度きりの驚きで終わらせず、SNS拡散やWebキャンペーンと連動させます。
+                    </p>
+                    <p class="text-gray-300">
+                        ショー中にQRコードを描いてSNS誘導する演出や、ハッシュタグキャンペーンと連動した企画など、ショーとデジタルマーケティングを一体で提案可能です。
+                    </p>
+                </div>
+                
+                <div class="feature-card h-full">
+                    <div class="h-16 flex items-center mb-4">
+                        <i class="fas fa-cube text-4xl text-indigo-400 mr-4"></i>
+                        <h3 class="text-xl font-bold">高いアニメーション／3D演出力</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">
+                        ドローンの編隊制御とCGデザインの高度な技術により、緻密で滑らかなアニメーション表現が可能です。多数のドローンを用いて立体的（3D）な造形を空中に描き出せます。
+                    </p>
+                    <p class="text-gray-300">
+                        特にRayGrooveではデザイナーとテクニカルチームが連携し、ドローンの動き一つひとつに物語性や意味を持たせた独創的な演出を行います。
+                    </p>
+                </div>
+            </div>
+            
+            <div class="mt-10 text-center">
+                <p class="text-xl italic text-gray-300">
+                    "私たちは単なるドローンのイベント会社ではなく、<br>
+                    <span class="neon-text font-bold">空のストーリーテラー</span>です"
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 5: Past Results & Reference Videos -->
+    <section id="slide5" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">過去実績・参考ショー映像</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="panel">
+                    <h3 class="text-xl font-bold mb-4">実績事例</h3>
+                    <ul class="space-y-4">
+                        <li class="flex items-start">
+                            <div class="min-w-[100px] mr-4">
+                                <img src="https://drone-journal.impress.co.jp/img/drone/docs/1186/814/1186814_01_l.jpg" alt="イベント映像" class="w-full h-24 object-cover rounded">
+                            </div>
+                            <div>
+                                <h4 class="font-bold">○○花火大会 ドローンコラボ</h4>
+                                <p class="text-sm text-gray-300">
+                                    2024年7月 | 200機 | 夜空に花火とドローンで地域の伝説を物語化
+                                    <br><a href="#" class="text-blue-400 hover:underline"><i class="fas fa-play-circle mr-1"></i>映像を見る</a>
+                                </p>
+                            </div>
+                        </li>
+                        <li class="flex items-start">
+                            <div class="min-w-[100px] mr-4">
+                                <img src="https://droneshow-world.com/wp-content/uploads/2024/09/TOKYO-LIGHTS-2024%E3%83%89%E3%83%AD%E3%83%BC%E3%83%B3%E3%82%B7%E3%83%A7%E3%83%BC%E3%81%AE%E7%94%BB%E5%83%8F-1024x683.jpg" alt="イベント映像" class="w-full h-24 object-cover rounded">
+                            </div>
+                            <div>
+                                <h4 class="font-bold">○○市 記念イベント</h4>
+                                <p class="text-sm text-gray-300">
+                                    2024年5月 | 300機 | 市制100周年を祝うストーリー演出
+                                    <br><a href="#" class="text-blue-400 hover:underline"><i class="fas fa-play-circle mr-1"></i>映像を見る</a>
+                                </p>
+                            </div>
+                        </li>
+                        <li class="flex items-start">
+                            <div class="min-w-[100px] mr-4">
+                                <img src="https://biz.shibuyabunka.com/storage/images/watch/1739076985.jpg" alt="イベント映像" class="w-full h-24 object-cover rounded">
+                            </div>
+                            <div>
+                                <h4 class="font-bold">○○ブランド 新商品発表会</h4>
+                                <p class="text-sm text-gray-300">
+                                    2024年3月 | 150機 | 製品ロゴとQRコードを組み合わせた演出
+                                    <br><a href="#" class="text-blue-400 hover:underline"><i class="fas fa-play-circle mr-1"></i>映像を見る</a>
+                                </p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="panel">
+                    <h3 class="text-xl font-bold mb-4">参考ドローンショー映像</h3>
+                    <div class="aspect-w-16 aspect-h-9 mb-6">
+                        <div class="w-full h-56 bg-black flex items-center justify-center rounded relative overflow-hidden">
+                            <img src="https://image.asoview-media.com/image/production/note/article/871b3fd7-23ad-4e96-962c-9a0baf339f5c.jpg" alt="ドローンショー映像" class="w-full h-full object-cover opacity-60">
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="w-16 h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
+                                    <i class="fas fa-play text-white text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-300 mb-6">
+                        RayGrooveでは、ストーリー性のあるドローンショーの演出を得意としています。上記は参考映像の一例です。ご要望に応じたカスタムショーの制作も承ります。
+                    </p>
+                    <p class="text-gray-300">
+                        <i class="fas fa-info-circle mr-2 text-blue-400"></i>
+                        各映像は実際にRayGrooveが手掛けた公演の記録です。お問い合わせの際に詳細な映像資料をご提供いたします。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 6: Process -->
+    <section id="slide6" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-10 font-bold">プロセス紹介（制作フロー）</h2>
+            
+            <div class="relative mb-10">
+                <div class="h-1 bg-gradient-to-r from-blue-500 to-indigo-500 w-full absolute top-6 left-0 z-0"></div>
+                <div class="flex justify-between relative z-10">
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">1</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">2</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">3</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">4</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">5</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">6</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">7</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span class="font-bold">8</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-8">
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">ヒアリング & 企画立案</h3>
+                        <p class="text-gray-300">
+                            クライアントの要望（演出テーマ、伝えたいメッセージ、予算、会場条件など）を詳しくヒアリングします。それを基に、物語のコンセプトや主要な演出アイデアを立案します。
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">ストーリー構成 & デザイン検討</h3>
+                        <p class="text-gray-300">
+                            ヒアリング内容を踏まえてショー全体のストーリー構成を作成し、ドローンで描くビジュアルのシナリオを作ります。同時に演出イメージのラフデザインや必要なら絵コンテを制作し、クライアントに提案・共有します。
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">アニメーション制作 (3Dシミュレーション)</h3>
+                        <p class="text-gray-300">
+                            合意したストーリー・演出プランに基づき、専用ソフトでドローンショーの振付データ（3Dアニメーション）を制作します。ドローンの隊列がどのように動き、どんな図形や文字を描くかをシミュレーションし、高度・タイミングも詳細に設計します。
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">レビュー & 調整</h3>
+                        <p class="text-gray-300">
+                            シミュレーション動画やプレビュー画像をクライアントと共有し、内容をレビューします。修正要望に応じてアニメーションや構成を調整し、クライアント合意の最終プランを確定します。
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="space-y-8">
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">許認可申請 & 準備</h3>
+                        <p class="text-gray-300">
+                            ショー実施に向けて必要な許可申請（夜間飛行許可、飛行エリアの管轄官庁への申請など航空法関連手続き）を行います。同時に現地の下見（ロケハン）や安全計画の策定、機体や機材の準備を進めます。※許可申請には通常約1か月要するため、余裕を持って準備します。
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">リハーサル（試験飛行）</h3>
+                        <p class="text-gray-300">
+                            可能であれば本番前にドローンの試験飛行・リハーサルを行います。実際の会場または近似環境で、プログラム通りにドローンが飛行できるか、安全面に問題ないかを確認します。必要に応じて微調整を実施します。
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">本番実施</h3>
+                        <p class="text-gray-300">
+                            イベント当日、チーム一丸となってショーを遂行します。安全確認を徹底し、予定時刻に合わせてドローンを一斉飛行させ、観客に向けてショーを披露します。演出中はリアルタイムで天候や機体状況を監視し、安全かつスムーズに運営します。
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-step">
+                        <h3 class="text-xl font-bold mb-2">アフターフォロー</h3>
+                        <p class="text-gray-300">
+                            ショー終了後、クライアントへの納品物としてショーの記録映像や写真を提供します。またSNS投稿用の映像素材提供や、プレスリリース作成支援など、Web PR展開もサポートします。これによりショーの効果を最大化し、クライアントのプロモーション目標達成につなげます。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 7: Show Case Templates -->
+    <section id="slide7" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">ショー事例テンプレート</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div class="panel h-full">
+                    <div class="relative w-full h-64 mb-6 overflow-hidden rounded">
+                        <img src="https://page1.genspark.site/v1/base64_upload/7bb563b072e52dbc7de63a839a008c65" alt="QRコード演出" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60"></div>
+                        <div class="absolute bottom-4 left-4 text-white">
+                            <h3 class="text-xl font-bold">QRコード演出</h3>
+                        </div>
+                    </div>
+                    <p class="text-gray-300 mb-4">
+                        ドローンの編隊で巨大なQRコードを空中に表示するユニークな演出です。観客がその場でスマートフォンでQRコードをスキャンすることで、キャンペーンサイトに誘導したりアンケートページを開くなど、インタラクティブな仕掛けが可能になります。
+                    </p>
+                    <div class="flex items-center space-x-4 mt-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-indigo-500 bg-opacity-20 flex items-center justify-center">
+                            <i class="fas fa-qrcode text-2xl text-indigo-400"></i>
+                        </div>
+                        <p class="text-sm text-gray-300">
+                            SNS上でも話題になりやすく、マーケティング施策として注目を集める演出です。
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="panel h-full">
+                    <div class="relative w-full h-64 mb-6 overflow-hidden rounded">
+                        <img src="https://page1.genspark.site/v1/base64_upload/2ac50374161666e4cdeb0fabf7d4286a" alt="協賛ロゴ演出" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60"></div>
+                        <div class="absolute bottom-4 left-4 text-white">
+                            <h3 class="text-xl font-bold">協賛ロゴ演出</h3>
+                        </div>
+                    </div>
+                    <p class="text-gray-300 mb-4">
+                        スポンサー企業のロゴマークやイベントタイトルをドローンで夜空に描く演出です。企業ロゴを数百機のドローンで正確に再現し、観客の前で浮かび上がらせます。ブランド露出やスポンサー満足度向上に直結する定番演出です。
+                    </p>
+                    <div class="flex items-center space-x-4 mt-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center">
+                            <i class="fas fa-building text-2xl text-blue-400"></i>
+                        </div>
+                        <p class="text-sm text-gray-300">
+                            ロゴを動きのあるアニメーションと組み合わせることで、より印象的な演出が可能です。
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-10 panel">
+                <h3 class="text-xl font-bold mb-4">立体造形（3D）演出</h3>
+                <div class="flex flex-col md:flex-row items-center">
+                    <div class="md:w-1/3 mb-6 md:mb-0 md:mr-8">
+                        <img src="https://droneshow.co.jp/wp-content/uploads/2023/11/image-28.png" alt="キャラクター3D演出" class="w-full h-56 object-cover rounded">
+                    </div>
+                    <div class="md:w-2/3">
+                        <p class="text-gray-300 mb-4">
+                            高度な隊形制御技術により、ドローンが空間に立体的な形状を描き出します。キャラクターが空を飛ぶような臨場感のある演出や、建物、乗り物など複雑な3D造形が可能です。
+                        </p>
+                        <p class="text-gray-300">
+                            <i class="fas fa-info-circle mr-2 text-blue-400"></i>
+                            お客様の要望に合わせて、上記以外にも様々な演出パターンをカスタマイズ可能です。キャラクターライセンスの取得代行も承ります。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 8: Technical Specifications -->
+    <section id="slide8" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">技術仕様（機体数・機体スペック）</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div class="panel">
+                    <h3 class="text-xl font-bold mb-4">機体数別の演出表現の幅</h3>
+                    
+                    <div class="space-y-6">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-16 h-16 bg-blue-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-xl font-bold">50<span class="text-sm">機</span></span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">小規模（50機程度）</h4>
+                                <p class="text-sm text-gray-300">
+                                    シンプルな2D図形や文字の表示が中心。ロゴや基本的な形状を描くのに適しています。小規模イベントや屋内イベント向き。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-16 h-16 bg-indigo-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-xl font-bold">200<span class="text-sm">機</span></span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">中規模（100～200機）</h4>
+                                <p class="text-sm text-gray-300">
+                                    表現力が向上し、多少複雑な図形や簡単なアニメーションが可能。文字メッセージをスクロール表示させたり、色のグラデーションを付けた演出もできます。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-16 h-16 bg-purple-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-xl font-bold">500<span class="text-sm">機</span></span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">大規模（300～500機）</h4>
+                                <p class="text-sm text-gray-300">
+                                    より精細な図柄や本格的なアニメーション演出が可能。例えばキャラクターの動きや立体的な表現（簡易3D）が実現できます。大規模イベントや都市型イベントで高い訴求力を発揮します。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-16 h-16 bg-pink-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <span class="text-xl font-bold">500+<span class="text-sm">機</span></span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">超大型（500機以上）</h4>
+                                <p class="text-sm text-gray-300">
+                                    圧倒的スケールのショーが実現可能。高度な3D立体演出や、大きな空間全体を使ったダイナミックな動きで観客を包み込む演出ができます。ただし超大型の場合は機体・オペレーション体制の確保や規制対応もより慎重に行う必要があります。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h3 class="text-xl font-bold mb-4">機体スペック</h3>
+                    
+                    <div class="space-y-6">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-10 h-10 bg-blue-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <i class="fas fa-drone text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">機体</h4>
+                                <p class="text-sm text-gray-300">
+                                    ショー専用小型ドローン（重量約500～600g級）。軽量設計で衝撃に強く、安全性に配慮された機体を採用。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-10 h-10 bg-blue-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <i class="fas fa-lightbulb text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">LEDライト</h4>
+                                <p class="text-sm text-gray-300">
+                                    高輝度フルカラーLED搭載。遠方からでも視認性が高く、調光・発色パターンを細かく制御可能。複数色の発光によりグラデーションや色変化の演出が可能。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-10 h-10 bg-blue-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <i class="fas fa-battery-full text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">飛行時間</h4>
+                                <p class="text-sm text-gray-300">
+                                    約10～15分間の連続飛行が可能。ショー演出時間として一般的な5～10分程度の公演であれば十分なバッテリー容量を備えています（※風速や演出内容により変動）。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-10 h-10 bg-blue-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <i class="fas fa-satellite text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">測位・制御</h4>
+                                <p class="text-sm text-gray-300">
+                                    高精度GPSおよびRTKシステムによる正確な位置制御。高精度で隊列を維持し、複雑な図形もブレずに描画可能です。プログラム制御により100機以上を一括同期飛行させます。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-10 h-10 bg-blue-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
+                                <i class="fas fa-shield-alt text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold mb-1">安全機能</h4>
+                                <p class="text-sm text-gray-300">
+                                    ジオフェンス機能搭載。急な風向変化やGPSロストに備えた自律制御モード、衝突防止センサーを搭載し、安全性を高めています。防水性能も一定レベル備えており、小雨程度なら公演可能です。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 9: Safety, Legal Compliance & Venue Examples -->
+    <section id="slide9" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">安全性・法律対応・実施エリア例</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="panel h-full">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-4">
+                            <i class="fas fa-gavel text-2xl text-blue-400"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">法令・許認可</h3>
+                    </div>
+                    <ul class="space-y-3 text-sm text-gray-300">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-400 mt-1 mr-2"></i>
+                            <span>夜間に多数のドローンを飛行させるには国土交通省への飛行許可申請など法的手続きが必要です</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-400 mt-1 mr-2"></i>
+                            <span>航空法に基づく無人航空機飛行許可（夜間飛行・イベント上空飛行など）の取得</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-400 mt-1 mr-2"></i>
+                            <span>電波法令遵守による適切な機体運用</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-400 mt-1 mr-2"></i>
+                            <span>当社が責任をもってこれらの手続きを代行します</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-exclamation-circle text-yellow-400 mt-1 mr-2"></i>
+                            <span>許可申請には1か月以上を要するため、計画は余裕を持って進める必要があります</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="panel h-full">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-purple-500 bg-opacity-20 flex items-center justify-center mr-4">
+                            <i class="fas fa-shield-alt text-2xl text-purple-400"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">安全性への取り組み</h3>
+                    </div>
+                    <ul class="space-y-3 text-sm text-gray-300">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-purple-400 mt-1 mr-2"></i>
+                            <span><strong>事前リスク評価</strong>：会場ごとに地形・周辺環境を調査し、飛行可能空域や危険要因をチェック</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-purple-400 mt-1 mr-2"></i>
+                            <span><strong>二重・三重の安全システム</strong>：ジオフェンス、GPS障害時の自動帰還設定、手動介入による全機緊急着陸システムを準備</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-purple-400 mt-1 mr-2"></i>
+                            <span><strong>オペレーション体制</strong>：経験豊富なパイロットおよび運航管理者が現場で指揮</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-purple-400 mt-1 mr-2"></i>
+                            <span><strong>保険加入</strong>：十分な対人・対物賠償保険に加入（最大10億円まで対応）</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="panel h-full">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-indigo-500 bg-opacity-20 flex items-center justify-center mr-4">
+                            <i class="fas fa-map-marker-alt text-2xl text-indigo-400"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">実施可能エリア例</h3>
+                    </div>
+                    <ul class="space-y-3 text-sm text-gray-300">
+                        <li class="flex items-start">
+                            <i class="fas fa-city text-indigo-400 mt-1 mr-2"></i>
+                            <div>
+                                <strong>都市部の屋外イベント</strong>：建物屋上や大規模広場、河川敷など十分な空域が確保できる場所
+                                <p class="text-xs mt-1 text-gray-400"></p>
+                            </div>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-tree text-indigo-400 mt-1 mr-2"></i>
+                            <div>
+                                <strong>郊外・自然環境</strong>：海浜公園や運動公園、ゴルフ場、山間の開けた場所など
+                                <p class="text-xs mt-1 text-gray-400"></p>
+                            </div>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-warehouse text-indigo-400 mt-1 mr-2"></i>
+                            <div>
+                                <strong>屋内・ドーム</strong>：小規模な機数なら屋内アリーナやドーム空間で実施可能
+                                <p class="text-xs mt-1 text-gray-400"></p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <div class="flex items-center mb-4">
+                    <div class="w-12 h-12 rounded-full bg-green-500 bg-opacity-20 flex items-center justify-center mr-4">
+                        <i class="fas fa-info-circle text-2xl text-green-400"></i>
+                    </div>
+                    <h3 class="text-xl font-bold">特記事項</h3>
+                </div>
+                <p class="text-gray-300 mb-4">
+                    RayGrooveでは、場所の特性や要求される演出内容に応じて最適な機材構成とオペレーション計画を立案します。過去の国内事例では、テーマパーク、スタジアム、遊園地の夜間イベント、博覧会会場等で開催実績があります。
+                </p>
+                <p class="text-gray-300">
+                    安全性を最優先に考慮した上で、開催地の条件に合わせて柔軟にプランニングいたします。事前の詳細な現地調査と緊密な関係者調整により、安全かつ印象的なショーを実現します。
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 10: Price Information -->
+    <section id="slide10" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">料金イメージ</h2>
+            
+            <div class="panel">
+                <h3 class="text-xl font-bold mb-6 text-center">お客様の条件に合わせて御見積します</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="border border-blue-500 rounded-lg p-4">
+                        <h4 class="font-bold text-lg mb-3 flex items-center">
+                            <i class="fas fa-check-circle text-blue-400 mr-2"></i>
+                            事前準備・及び制作費
+                        </h4>
+                        <ul class="space-y-2 text-sm text-gray-300">
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>ロケハン</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>企画費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>事前リハーサル費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>ドット絵制作費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>アニメーション作成費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>飛行プログラミング費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>シミュレーション映像制作費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>ダンスファイル制作費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>音源作成費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>進行管理費</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="border border-blue-500 rounded-lg p-4">
+                        <h4 class="font-bold text-lg mb-3 flex items-center">
+                            <i class="fas fa-check-circle text-blue-400 mr-2"></i>
+                            運営費
+                        </h4>
+                        <ul class="space-y-2 text-sm text-gray-300">
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>機体費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>運営人件費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>運営設営費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>本番会場リハーサル費１回</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>ロケハン費１箇所</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>飛行申請費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>対人対物保険費用(10億円まで対応)</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>進行管理費</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-info-circle text-xs mt-1 mr-2"></i>
+                                <span>※諸経費別（輸送費・交通費・宿泊費）</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="border border-blue-500 rounded-lg p-4">
+                        <h4 class="font-bold text-lg mb-3 flex items-center">
+                            <i class="fas fa-check-circle text-blue-400 mr-2"></i>
+                            オプション
+                        </h4>
+                        <p class="text-sm text-gray-400 mb-2">追加開催費</p>
+                        <ul class="space-y-2 text-sm text-gray-300 mb-4">
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>同日追加</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>連日開催</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>隔日開催</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>予備日追加</span>
+                            </li>
+                        </ul>
+                        
+                        <p class="text-sm text-gray-400 mb-2">クリエイティブ</p>
+                        <ul class="space-y-2 text-sm text-gray-300">
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>追加アニメーション修正</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>追加リハーサル実施</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>BGM選定・簡易編集</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>花火演出</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-xs mt-1 mr-2"></i>
+                                <span>演出家アサイン</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+            
+                
+                <div class="border-t border-blue-500 pt-6">
+                    <h4 class="font-bold mb-4">開催日追加（同一アニメーションに限る）</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <ul class="space-y-2 text-sm text-gray-300">
+                                <li>１日２回目開催（基本料金の20％追加）</li>
+                                <li>連日開催（基本料金の40％追加）</li>
+                                <li>別日開催（基本料金の60％追加※1カ月以内実施に限る）</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <ul class="space-y-2 text-sm text-gray-300">
+                                <li>別会場開催（基本料金の100％追加※1カ月以内実施に限る）</li>
+                                <li>開催予備日追加（基本料金の10％追加）</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="border-t border-blue-500 pt-6 mt-6">
+                    <h4 class="font-bold mb-4">支払いについて</h4>
+                    <p class="text-sm text-gray-300 mb-2">〈全2回〉</p>
+                    <ul class="space-y-2 text-sm text-gray-300 mb-4">
+                        <li>１回目：アニメーション完成後：制作費（納品月の翌月末）</li>
+                        <li>２回目：ショー実施後：運営費＋実費（実施月の翌月末）</li>
+                    </ul>
+                    <p class="text-sm text-gray-300">
+                        ※ロケハン後キャンセルの場合、ロケハン費20万円（税別）と交通費の実費をご請求致します<br>
+                        ※規定スケジュール(最短2か月)よりも短い場合は全体費用より10％追加となります<br>
+                        ※年末年始・大型連休・3日間以上の連休を 開催日とする場合20％追加となります
+                    </p>
+                </div>
+                
+                <div class="border-t border-blue-500 pt-6 mt-6">
+                    <h4 class="font-bold mb-4">キャンセル料</h4>
+                    <ul class="space-y-2 text-sm text-gray-300">
+                        <li>機材運送前 事前制作関連費について進捗した実費</li>
+                        <li>機材輸送後 事前制作関連費について進捗した実費に加えて現場関連費50％</li>
+                    </ul>
+                    <p class="text-sm text-gray-300 mt-2">
+                        ※開催中止の判断は機材輸送前に主催者と協議の上、決定します。<br>
+                        ※機材輸送は通常本番の４日前に行います。<br>
+                        ※天候不良による中止も適用<br>
+                        ※この他、キャンセル時までの実費と制作費が別途発生致します。<br>
+                        ※開催が複数日にまたがる場合「実施日」とは開催日初日を指します。
+                    </p>
+                </div>
+                
+                <div class="border-t border-blue-500 pt-6 mt-6">
+                    <h4 class="font-bold mb-4">キャンセルポリシー</h4>
+                    <ul class="space-y-2 text-sm text-gray-300">
+                        <li>風速5m/s以上 の風が吹いている場合</li>
+                        <li>降水量2mm以上の雨が降っている場合</li>
+                        <li>深刻な電波障害が発生した時</li>
+                        <li>自然災害など不可抗力によって主催者が中止と判断した場合</li>
+                        <li>離陸時に10%以上のドローンが電波障害によって機体との通信が取れない場合</li>
+                    </ul>
+                    <p class="text-sm text-gray-300 mt-2">
+                        ※弊社実績上、上記現象が発生したことはありませんが、<br>
+                        目に見えない電波の都合で生じる場合があるため、<br>
+                        万が一の可能性がある旨予めご了承ください。<br>
+                        ※準備時間の小雨は雨カバーで対応
+                    </p>
+                </div>
+            </div>
+            
+            <p class="text-center text-sm text-gray-400 mt-6">
+                ※正式なお見積りはヒアリング後にご提示します
+            </p>
+        </div>
+    </section>
+
+    <!-- Slide 11: Team Introduction -->
+    <section id="slide11" class="slide bg-gradient">
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content">
+            <h2 class="section-title text-3xl md:text-5xl mb-10 font-bold">チーム紹介</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="team-card">
+                    <div class="w-full h-48 bg-blue-900 bg-opacity-50 flex items-center justify-center">
+                        <i class="fas fa-user-tie text-6xl text-blue-400"></i>
+                    </div>
+                    <div class="p-4">
+                        <h4 class="font-bold text-xl mb-1">クリエイティブディレクター</h4>
+                        <p class="text-sm text-blue-400 mb-3">Creative Director</p>
+                        <p class="text-sm text-gray-300">
+                            ドローンショー全体のクリエイティブ面を統括する責任者。長年エンターテイメント業界で活躍した著名な方々が担当、物語性ある演出を得意としています。映像、広告、イベントなど多様な領域でのキャリアを活かし、感動的な空のストーリーを創り出します。
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="team-card">
+                    <div class="w-full h-48 bg-purple-900 bg-opacity-50 flex items-center justify-center">
+                        <i class="fas fa-laptop-code text-6xl text-purple-400"></i>
+                    </div>
+                    <div class="p-4">
+                        <h4 class="font-bold text-xl mb-1">テクニカルディレクター</h4>
+                        <p class="text-sm text-purple-400 mb-3">Technical Director / Drone Choreographer</p>
+                        <p class="text-sm text-gray-300">
+                            ドローン編隊飛行プログラムの設計リード。航空工学やプログラミングに精通し、安全かつ魅力的なショー飛行を実現するスペシャリスト。複雑なフォーメーションからスムーズなアニメーションまで、テクニカルな課題を創造的に解決します。
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="team-card">
+                    <div class="w-full h-48 bg-indigo-900 bg-opacity-50 flex items-center justify-center">
+                        <i class="fas fa-tasks text-6xl text-indigo-400"></i>
+                    </div>
+                    <div class="p-4">
+                        <h4 class="font-bold text-xl mb-1">プロジェクトマネージャー</h4>
+                        <p class="text-sm text-indigo-400 mb-3">Project Manager / Producer</p>
+                        <p class="text-sm text-gray-300">
+                            クライアント対応から当日運営まで全体を管理する統括者。イベント運営や広告プロモーションの知見を持ち、円滑な進行と成果最大化を図ります。プロジェクト全体のスケジュール管理から、関係各所との調整まで幅広く対応します。
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="team-card">
+                    <div class="w-full h-48 bg-pink-900 bg-opacity-50 flex items-center justify-center">
+                        <i class="fas fa-paint-brush text-6xl text-pink-400"></i>
+                    </div>
+                    <div class="p-4">
+                        <h4 class="font-bold text-xl mb-1">デザイナー／アニメーター</h4>
+                        <p class="text-sm text-pink-400 mb-3">Designer / Animator</p>
+                        <p class="text-sm text-gray-300">
+                            ドローンで描くビジュアルのデザインや3Dアニメーションを担当。映像制作やCGに精通し、美しい空のアートを創り出します。クライアントのビジョンを空中に描き出すため、独創的かつ洗練されたデザインを提案します。
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="team-card">
+                    <div class="w-full h-48 bg-green-900 bg-opacity-50 flex items-center justify-center">
+                        <i class="fas fa-drone text-6xl text-green-400"></i>
+                    </div>
+                    <div class="p-4">
+                        <h4 class="font-bold text-xl mb-1">オペレーションチーム</h4>
+                        <p class="text-sm text-green-400 mb-3">Operation Team</p>
+                        <p class="text-sm text-gray-300">
+                            実際にドローンを操縦・運用するパイロットや安全管理担当スタッフ。全員が無人航空機のライセンスや技適資格を保持し、豊富な現場経験があります。厳しい訓練と緊急時対応のシミュレーションを繰り返し実施し、安全で確実なオペレーションを実現します。
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-10 text-center">
+                <p class="text-xl italic text-gray-300">
+                    "RayGrooveチームは、<span class="neon-text">クリエイティブと技術の融合</span>により、<br>
+                    お客様の想像を超える感動体験を提供します"
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 12: Contact & CTA -->
+    <section id="slide12" class="slide bg-gradient">
+        <div class="cover-bg" style="opacity: 0.2;"></div>
+        <div class="stars"></div>
+        <div class="grid-lines"></div>
+        
+        <div class="slide-content flex flex-col items-center justify-center">
+            <h2 class="section-title text-3xl md:text-5xl mb-8 font-bold">お問い合わせ</h2>
+            
+            <div class="panel w-full max-w-2xl mx-auto">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-10">
+                    <div class="text-center md:text-left">
+                        <h3 class="text-2xl font-bold mb-2">株式会社Active Seek</h3>
+                        <p class="text-lg mb-6">RayGroove事業部</p>
+                        
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-4">
+                                    <i class="fas fa-phone text-blue-400"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="text-sm text-gray-400">お電話</p>
+                                    <p>03-5366-5649</p>
+                                </div>
+                            </li>
+                            <li class="flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-4">
+                                    <i class="fas fa-envelope text-blue-400"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="text-sm text-gray-400">メールアドレス</p>
+                                    <p>info@a-seek.jp</p>
+                                </div>
+                            </li>
+                            <li class="flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-4">
+                                    <i class="fas fa-map-marker-alt text-blue-400"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="text-sm text-gray-400">所在地</p>
+                                    <p>〒162-0067 東京都新宿区富久町16-6西倉LKビル4階</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="flex flex-col items-center">
+                        <div class="bg-white p-4 rounded-lg mb-4">
+                            <div class="w-32 h-32 flex items-center justify-center">
+                                <!-- QR Code placeholder -->
+                                <i class="fas fa-qrcode text-6xl text-gray-800"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-300">
+                            お問い合わせフォームへアクセス<br>
+                            ※QRコードを読み取るとフォームが開きます
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="mt-8 text-center">
+                    <p class="text-xl font-bold mb-4 neon-text">次は御社のイベントで新たな物語を創りましょう</p>
+                    <a href="#" class="inline-block bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 px-8 rounded-full hover:from-blue-700 hover:to-purple-700 transition duration-300">
+                        お見積り・ご相談はこちら
+                    </a>
+                </div>
+            </div>
+            
+            <div class="mt-10">
+                <p class="text-xl italic text-gray-300">
+                    "RayGroove - <span class="neon-text">空に物語を描く</span>"
+                </p>
+                <p class="mt-4 text-sm text-gray-400">
+                    ©2025 Active Seek Inc. All Rights Reserved.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up navigation dots
+            const slides = document.querySelectorAll('.slide');
+            const navDots = document.querySelectorAll('.nav-dot');
+            const currentSlideEl = document.getElementById('current-slide');
+            const totalSlidesEl = document.getElementById('total-slides');
+            
+            totalSlidesEl.textContent = slides.length;
+            
+            // Intersection Observer for slides
+            const options = {
+                threshold: 0.5
+            };
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const slideId = entry.target.id;
+                        const slideNumber = slideId.replace('slide', '');
+                        updateNavDots(slideNumber);
+                        currentSlideEl.textContent = slideNumber;
+                    }
+                });
+            }, options);
+            
+            slides.forEach(slide => {
+                observer.observe(slide);
+            });
+            
+            // Update nav dots
+            function updateNavDots(activeSlide) {
+                navDots.forEach(dot => {
+                    dot.classList.remove('active');
+                });
+                document.querySelector(`.nav-dot[data-slide="${activeSlide}"]`).classList.add('active');
+            }
+            
+            // Click event for nav dots
+            navDots.forEach(dot => {
+                dot.addEventListener('click', () => {
+                    const slideNumber = dot.getAttribute('data-slide');
+                    document.getElementById(`slide${slideNumber}`).scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+            
+            // Initialize first slide as active
+            updateNavDots(1);
+        });
+    </script>
+</body>
+</html>
