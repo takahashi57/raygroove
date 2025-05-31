@@ -58,6 +58,10 @@
             background-clip: text;
             color: transparent;
             text-shadow: 0 0 10px rgba(125, 77, 255, 0.5);
+            line-height: 1.2;  /* 行の高さを調整 */
+            padding-top: 0.25em;  /* 上部のパディングを追加 */
+            padding-bottom: 0.25em;  /* 下部のパディングを追加 */
+            display: inline-block;  /* インラインブロックに変更 */
         }
         
         .subtitle {
@@ -397,7 +401,7 @@
                 <div class="panel">
                     <div class="flex items-center mb-4">
                         <div class="w-12 h-12 rounded-full bg-blue-500 bg-opacity-20 flex items-center justify-center mr-4">
-                            <i class="fas fa-drone text-2xl text-blue-400"></i>
+                            <i class="fas fa-helicopter text-2xl text-blue-400"></i>
                         </div>
                         <h3 class="text-xl font-bold">ドローンショーとは</h3>
                     </div>
@@ -813,7 +817,7 @@
                     <div class="space-y-6">
                         <div class="flex items-start">
                             <div class="flex-shrink-0 w-10 h-10 bg-blue-900 bg-opacity-50 rounded-full flex items-center justify-center mr-4">
-                                <i class="fas fa-drone text-blue-400"></i>
+                                <i class="fas fa-helicopter text-blue-400"></i>
                             </div>
                             <div>
                                 <h4 class="font-bold mb-1">機体</h4>
@@ -1356,10 +1360,10 @@
                     
                     <div class="flex flex-col items-center">
                         <div class="bg-white p-4 rounded-lg mb-4">
-                            <div class="w-32 h-32 flex items-center justify-center">
+                            <a href="contact.html" class="w-32 h-32 flex items-center justify-center bg-white rounded-lg">
                                 <!-- QR Code placeholder -->
                                 <i class="fas fa-qrcode text-6xl text-gray-800"></i>
-                            </div>
+                            </a>
                         </div>
                         <p class="text-sm text-gray-300">
                             お問い合わせフォームへアクセス<br>
@@ -1370,7 +1374,7 @@
                 
                 <div class="mt-8 text-center">
                     <p class="text-xl font-bold mb-4 neon-text">次は御社のイベントで新たな物語を創りましょう</p>
-                    <a href="#" class="inline-block bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 px-8 rounded-full hover:from-blue-700 hover:to-purple-700 transition duration-300">
+                    <a href="contact.html" class="inline-block bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 px-8 rounded-full hover:from-blue-700 hover:to-purple-700 transition duration-300">
                         お見積り・ご相談はこちら
                     </a>
                 </div>
