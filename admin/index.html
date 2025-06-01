@@ -1,0 +1,3410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理ダッシュボード - お問い合わせ管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Sentry SDK をロード（integrityチェックを削除） -->
+<script src="https://browser.sentry-cdn.com/7.110.0/bundle.min.js"></script>
+
+<!-- Sentry 初期化スクリプト -->
+<script>
+  // Sentryの初期化
+  Sentry.init({
+    dsn: "https://e0dc5e8855e16408a83d33ae64b7d2f9@o4509423115698176.ingest.us.sentry.io/4509423168520192",
+    // 基本的な設定のみに絞る
+    debug: true, // デバッグモードを有効化
+    // 最初はシンプルに
+  });
+
+  // エラーハンドリングの例
+  window.addEventListener('error', function(event) {
+    console.error('エラーが発生しました:', event.error);
+    Sentry.captureException(event.error);
+  });
+
+  // 未処理のPromiseのエラーをキャッチ
+  window.addEventListener('unhandledrejection', function(event) {
+    console.error('未処理のPromiseエラー:', event.reason);
+    Sentry.captureException(event.reason);
+  });
+
+  // 動作確認用のテストエラー
+  try {
+    // テスト用のエラーを発生させる
+    console.log('Sentryの初期化が完了しました');
+    // 意図的にエラーを発生させる（テスト用）
+    // myUndefinedFunction();
+  } catch (error) {
+    console.error('初期化中のエラー:', error);
+    Sentry.captureException(error);
+  }
+</script>
+
+    
+    <!-- Bugsnag 
+    <script src="/admin/js/bugsnag.js"></script>
+    -->
+
+    <!-- ✅ 追加: TinyMCEリッチテキストエディタ -->
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <style>
+        /* ✅ 追加: ソート機能の視覚的改善 */
+        .sortable-header {
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        .sortable-header:hover {
+            background-color: #f3f4f6;
+            transform: translateY(-1px);
+        }
+        .sort-icon {
+            transition: all 0.3s ease;
+            opacity: 0.3;
+        }
+        .sort-icon.active {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .sort-icon.asc {
+            color: #3b82f6;
+        }
+        .sort-icon.desc {
+            color: #ef4444;
+        }
+        
+        /* ✅ 追加: モバイル対応の強化 */
+        @media (max-width: 768px) {
+            .mobile-table-container {
+                background: white;
+                border-radius: 0.5rem;
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            }
+            .mobile-card {
+                border-bottom: 1px solid #e5e7eb;
+                padding: 1rem;
+                transition: background-color 0.2s ease;
+            }
+            .mobile-card:hover {
+                background-color: #f9fafb;
+            }
+            .mobile-card:last-child {
+                border-bottom: none;
+            }
+            .touch-target {
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+        
+        /* ✅ 追加: 統計カードの改善 */
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .change-indicator {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* ✅ 追加: タッチ操作の改善 */
+        .touch-scroll {
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+        
+        /* ✅ 追加: 一括操作機能のスタイル */
+        .bulk-toolbar {
+            background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+            color: white;
+            transform: translateY(-100%);
+            transition: all 0.3s ease;
+        }
+        .bulk-toolbar.show {
+            transform: translateY(0);
+        }
+        .checkbox-cell {
+            width: 40px;
+        }
+        .row-selected {
+            background-color: #eff6ff !important;
+            border-left: 4px solid #3b82f6;
+        }
+        .select-counter {
+            animation: pulse 0.5s ease-in-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* ✅ 追加: モーダルの改善 */
+        .modal-backdrop {
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease-out;
+        }
+        .modal-content {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { 
+                opacity: 0;
+                transform: translateY(-50px) scale(0.95);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        /* ✅ 追加: リッチテキストエディタ関連のスタイル */
+        .tinymce-container {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+        .tinymce-container .tox-tinymce {
+            border: none;
+        }
+        .editor-toolbar {
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0.5rem;
+        }
+        
+        /* ✅ 追加: 添付ファイル関連のスタイル */
+        .file-upload-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        .file-upload-zone:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .file-upload-zone.dragover {
+            border-color: #1d4ed8;
+            background-color: #dbeafe;
+            transform: scale(1.02);
+        }
+        .file-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .file-item:hover {
+            shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+        .file-preview {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 0.375rem;
+        }
+        
+        /* ✅ 追加: 対応履歴関連のスタイル */
+        .history-timeline {
+            position: relative;
+        }
+        .history-timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e5e7eb;
+        }
+        .history-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+            padding-left: 3rem;
+        }
+        .history-item::before {
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: 0.5rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #3b82f6;
+            z-index: 1;
+        }
+        .history-item.status-change::before {
+            border-color: #10b981;
+        }
+        .history-item.note-added::before {
+            border-color: #f59e0b;
+        }
+        .history-item.file-uploaded::before {
+            border-color: #8b5cf6;
+        }
+        .history-content {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        .history-diff {
+            background: #f9fafb;
+            border-left: 4px solid #3b82f6;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        .diff-added {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        .diff-removed {
+            background-color: #fecaca;
+            color: #dc2626;
+        }
+        
+        /* ✅ 追加: タブ機能のスタイル */
+        .tab-button {
+            transition: all 0.2s ease;
+        }
+        .tab-button.active {
+            background: white;
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* ✅ 追加: モーダルサイズの調整 */
+        .modal-large {
+            width: 90%;
+            max-width: 1200px;
+        }
+        
+        /* ✅ 追加: レスポンシブテーブルの改善 */
+        @media (max-width: 1024px) {
+            .responsive-hide {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- エラー通知バナー -->
+    <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-2 text-center z-50">
+        <span id="error-message"></span>
+        <button onclick="hideErrorBanner()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- 接続状態インジケーター -->
+    <div id="connection-status" class="hidden fixed top-0 right-4 bg-yellow-500 text-white px-3 py-1 rounded-b text-sm z-40">
+        <i class="fas fa-wifi"></i> 接続を確認中...
+    </div>
+
+    <div class="flex h-screen">
+        <!-- サイドバー -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">管理画面</h1>
+                <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
+            </div>
+            <nav class="mt-4 space-y-1">
+                <!-- ダッシュボード -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ダッシュボード</div>
+                    <a href="index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-tachometer-alt w-5 mr-3 text-center"></i> ダッシュボード
+                    </a>
+                </div>
+
+                <!-- お問い合わせ管理 -->
+                <!--
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">お問い合わせ管理</div>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-list w-5 mr-3 text-center"></i> お問い合わせ一覧
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-plus-circle w-5 mr-3 text-center"></i> 新規作成
+                    </a>
+                </div>
+                -->
+
+                <!-- ユーザー管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ユーザー管理</div>
+                    <a href="users/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-users w-5 mr-3 text-center"></i> ユーザー一覧/追加
+                    </a>
+                </div>
+
+                <!-- 設定 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">設定</div>
+                    <a href="settings/general.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-cog w-5 mr-3 text-center"></i> 一般設定
+                    </a>
+                    <a href="settings/email.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-envelope w-5 mr-3 text-center"></i> メール設定
+                    </a>
+                    <a href="api/keys.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-key w-5 mr-3 text-center"></i> APIキー管理
+                    </a>
+                </div>
+
+                <!-- システム管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">システム管理</div>
+                    <a href="logs/access.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> アクセスログ
+                    </a>
+                    <a href="logs/actions.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-history w-5 mr-3 text-center"></i> 操作ログ
+                    </a>
+                    <a href="reports/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> レポート
+                    </a>
+                    <a href="notifications/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> 通知設定
+                    </a>
+                </div>
+
+                <!-- バックアップ -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">バックアップ</div>
+                    <a href="backup/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-database w-5 mr-3 text-center"></i> バックアップ管理
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-undo w-5 mr-3 text-center"></i> リストア
+                    </a>
+                </div>
+
+                <!-- ヘルプ -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ヘルプ</div>
+                    <a href="help/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-book w-5 mr-3 text-center"></i> マニュアル
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-question-circle w-5 mr-3 text-center"></i> お問い合わせ
+                    </a>
+                </div>
+
+                <!-- ログアウト -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <a href="login.html" id="logout-btn" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-sign-out-alt w-5 mr-3 text-center"></i> ログアウト
+                    </a>
+                </div>
+            </nav>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-gray-900">お問い合わせ一覧</h2>
+                    <div class="flex items-center space-x-4">
+                        <!-- 通知ボタン -->
+                        <div class="relative">
+                            <button type="button" class="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                <span class="sr-only">通知を表示</span>
+                                <div class="relative">
+                                    <i class="far fa-bell text-xl"></i>
+                                    <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                                </div>
+                            </button>
+                            <!-- 通知ドロップダウン（デフォルト非表示） -->
+                            <div class="hidden origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" role="menu" aria-orientation="vertical" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                                        <div class="flex justify-between items-center">
+                                            <span>通知一覧</span>
+                                            <button class="text-xs text-indigo-600 hover:text-indigo-800">すべて既読にする</button>
+                                        </div>
+                                    </div>
+                                    <div class="px-4 py-3 text-sm text-gray-500 text-center">
+                                        新しい通知はありません
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- プロフィールドロップダウン -->
+                        <div class="relative ml-3">
+                            <div>
+                                <button type="button" id="user-menu-button" class="max-w-xs bg-white flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-expanded="false" aria-haspopup="true">
+                                    <span class="sr-only">ユーザーメニューを開く</span>
+                                    <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                                        <i class="fas fa-user text-indigo-600"></i>
+                                    </div>
+                                    <span id="user-email" class="ml-2 text-sm text-gray-700">読み込み中...</span>
+                                    <i class="fas fa-chevron-down ml-1 text-gray-400 text-xs"></i>
+                                </button>
+                            </div>
+                            <!-- ドロップダウンメニュー -->
+                            <div id="user-dropdown" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" role="menu" aria-orientation="vertical" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-0">
+                                        <i class="fas fa-user-circle w-5 mr-2 text-center"></i> プロフィール
+                                    </a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-1">
+                                        <i class="fas fa-cog w-5 mr-2 text-center"></i> 設定
+                                    </a>
+                                    <div class="border-t border-gray-100"></div>
+                                    <a href="#" id="logout-btn" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-2">
+                                        <i class="fas fa-sign-out-alt w-5 mr-2 text-center"></i> ログアウト
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="last-updated" class="text-xs text-gray-500"></div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- ドロップダウンメニューの表示/非表示を制御するJavaScript -->
+            <script>
+                // プロフィールドロップダウンの表示/非表示
+                document.getElementById('user-menu-button').addEventListener('click', function() {
+                    const dropdown = document.getElementById('user-dropdown');
+                    const isExpanded = this.getAttribute('aria-expanded') === 'true';
+                    
+                    // ドロップダウンの表示/非表示を切り替え
+                    if (isExpanded) {
+                        dropdown.classList.add('hidden');
+                        this.setAttribute('aria-expanded', 'false');
+                    } else {
+                        dropdown.classList.remove('hidden');
+                        this.setAttribute('aria-expanded', 'true');
+                        
+                        // 他のドロップダウンを閉じる
+                        document.querySelectorAll('[aria-labelledby="user-menu-button"]')
+                            .forEach(menu => {
+                                if (menu !== dropdown) {
+                                    menu.classList.add('hidden');
+                                    menu.previousElementSibling.setAttribute('aria-expanded', 'false');
+                                }
+                            });
+                    }
+                });
+                
+                // ドキュメント全体をクリックしたときにドロップダウンを閉じる
+                document.addEventListener('click', function(event) {
+                    const userMenu = document.getElementById('user-menu-button');
+                    const dropdown = document.getElementById('user-dropdown');
+                    
+                    if (!userMenu.contains(event.target) && !dropdown.contains(event.target)) {
+                        dropdown.classList.add('hidden');
+                        userMenu.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            </script>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <!-- ✅ 改善: 統計情報カード（前日比・前月比表示強化） -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- 本日の新規問い合わせ -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg stat-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                                    <i class="fas fa-inbox text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">本日の新規</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" id="today-count">
+                                                <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                            </div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold change-indicator" id="today-change">
+                                                <span class="text-xs text-gray-500">件</span>
+                                            </div>
+                                        </dd>
+                                        <!-- ✅ 追加: 詳細な前日比表示 -->
+                                        <dd class="mt-1">
+                                            <div class="text-xs text-gray-500" id="today-comparison">
+                                                前日比を計算中...
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <button onclick="handleFilterByToday()" class="font-medium text-indigo-600 hover:text-indigo-900 transition-colors duration-200 flex items-center touch-target">
+                                    <i class="fas fa-filter mr-1"></i>本日分を表示
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 未対応の問い合わせ -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg stat-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                    <i class="fas fa-clock text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">未対応</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" id="pending-count">
+                                                <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                            </div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold text-gray-500">
+                                                <span class="text-xs">件</span>
+                                            </div>
+                                        </dd>
+                                        <!-- ✅ 追加: 緊急度表示 -->
+                                        <dd class="mt-1">
+                                            <div class="text-xs" id="pending-urgency">
+                                                <span class="text-yellow-600">対応が必要です</span>
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <button onclick="handleFilterByStatus('pending')" class="font-medium text-red-600 hover:text-red-900 transition-colors duration-200 flex items-center touch-target">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>未対応のみ表示
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 対応中の問い合わせ -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg stat-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                    <i class="fas fa-cogs text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">対応中</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" id="in-progress-count">
+                                                <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                            </div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold text-gray-500">
+                                                <span class="text-xs">件</span>
+                                            </div>
+                                        </dd>
+                                        <!-- ✅ 追加: 進行状況表示 -->
+                                        <dd class="mt-1">
+                                            <div class="text-xs text-blue-600" id="progress-status">
+                                                対応進行中
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <button onclick="handleFilterByStatus('in_progress')" class="font-medium text-blue-600 hover:text-blue-900 transition-colors duration-200 flex items-center touch-target">
+                                    <i class="fas fa-cogs mr-1"></i>対応中のみ表示
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 今月の問い合わせ総数 -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg stat-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                    <i class="fas fa-chart-line text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">今月の総数</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" id="monthly-count">
+                                                <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                            </div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold change-indicator" id="monthly-change">
+                                                <span class="text-xs text-gray-500">件</span>
+                                            </div>
+                                        </dd>
+                                        <!-- ✅ 追加: 詳細な前月比表示 -->
+                                        <dd class="mt-1">
+                                            <div class="text-xs text-gray-500" id="monthly-comparison">
+                                                前月比を計算中...
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <button onclick="handleShowAllContacts()" class="font-medium text-green-600 hover:text-green-900 transition-colors duration-200 flex items-center touch-target">
+                                    <i class="fas fa-list mr-1"></i>全件を表示
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- グラフエリア -->
+                <div class="bg-white shadow rounded-lg p-6 mb-8">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-medium text-gray-900">問い合わせトレンド</h3>
+                        <div class="relative">
+                            <select id="chart-period" class="appearance-none bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm">
+                                <option value="7">直近7日間</option>
+                                <option value="30" selected>今月（30日間）</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <canvas id="trend-chart" class="w-full h-80"></canvas>
+                    </div>
+                </div>
+
+                <!-- ✅ 改善: 検索・フィルター（一括操作ツールバー付き） -->
+                <div class="mb-6 bg-white rounded-lg shadow">
+                    <!-- 一括操作ツールバー -->
+                    <div id="bulk-toolbar" class="bulk-toolbar px-4 py-3 hidden">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <span class="select-counter" id="selected-count">0件選択中</span>
+                                <div class="h-4 w-px bg-white opacity-30"></div>
+                                <select id="bulk-status-change" class="bg-white text-gray-800 px-3 py-1 rounded text-sm border">
+                                    <option value="">ステータスを変更</option>
+                                    <option value="pending">保留中に変更</option>
+                                    <option value="in_progress">対応中に変更</option>
+                                    <option value="completed">完了に変更</option>
+                                </select>
+                                <button id="bulk-delete" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors duration-200">
+                                    <i class="fas fa-trash mr-1"></i>削除
+                                </button>
+                            </div>
+                            <button id="clear-selection" class="text-white hover:text-gray-200 transition-colors duration-200">
+                                <i class="fas fa-times mr-1"></i>選択解除
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 既存の検索・フィルター -->
+                    <div class="p-4">
+                        <div class="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+                            <div class="flex-1">
+                                <label for="search" class="sr-only">検索</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-search text-gray-400"></i>
+                                    </div>
+                                    <input type="text" id="search" 
+                                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
+                                           placeholder="名前、メール、メッセージで検索...">
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <select id="status-filter" class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">すべてのステータス</option>
+                                    <option value="pending">未対応</option>
+                                    <option value="in_progress">対応中</option>
+                                    <option value="completed">対応済み</option>
+                                </select>
+                                <button id="reset-filters" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                                    <i class="fas fa-times mr-1"></i>リセット
+                                </button>
+                                <button id="export-csv-advanced" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors duration-200">
+                                    <i class="fas fa-download mr-2"></i>エクスポート
+                                </button>
+                                <button id="refresh-data" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200">
+                                    <i class="fas fa-sync mr-2"></i>更新
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- フィルター状態表示 -->
+                        <div id="filter-status" class="mt-3 hidden">
+                            <div class="flex flex-wrap gap-2">
+                                <span class="text-sm text-gray-600">フィルター適用中:</span>
+                                <div id="active-filters" class="flex flex-wrap gap-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ 改善: お問い合わせ一覧テーブル（ソート機能とモバイル対応強化） -->
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <!-- デスクトップ用テーブル -->
+                    <div class="hidden md:block overflow-x-auto touch-scroll">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <!-- ✅ 追加: 全選択チェックボックス -->
+                                    <th scope="col" class="checkbox-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-colors duration-200">
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header" onclick="handleSortTable('created_at')">
+                                        <div class="flex items-center justify-between">
+                                            <span>日時</span>
+                                            <i id="sort-created_at" class="fas fa-sort ml-1 sort-icon"></i>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header" onclick="handleSortTable('name')">
+                                        <div class="flex items-center justify-between">
+                                            <span>お名前</span>
+                                            <i id="sort-name" class="fas fa-sort ml-1 sort-icon"></i>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header" onclick="handleSortTable('email')">
+                                        <div class="flex items-center justify-between">
+                                            <span>メール</span>
+                                            <i id="sort-email" class="fas fa-sort ml-1 sort-icon"></i>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header responsive-hide" onclick="handleSortTable('inquiry_type')">
+                                        <div class="flex items-center justify-between">
+                                            <span>種別</span>
+                                            <i id="sort-inquiry_type" class="fas fa-sort ml-1 sort-icon"></i>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable-header" onclick="handleSortTable('status')">
+                                        <div class="flex items-center justify-between">
+                                            <span>ステータス</span>
+                                            <i id="sort-status" class="fas fa-sort ml-1 sort-icon"></i>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        操作
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="contacts-table-body" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>データを読み込んでいます...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- ✅ 追加: モバイル用カード表示 -->
+                    <div class="md:hidden mobile-table-container" id="mobile-contacts-container">
+                        <div class="p-4 border-b border-gray-200 bg-gray-50">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-medium text-gray-900">お問い合わせ一覧</h3>
+                                <div class="flex items-center space-x-2">
+                                    <!-- モバイル用ソートセレクト -->
+                                    <select id="mobile-sort" class="text-xs border border-gray-300 rounded px-2 py-1">
+                                        <option value="created_at:desc">新しい順</option>
+                                        <option value="created_at:asc">古い順</option>
+                                        <option value="name:asc">名前順</option>
+                                        <option value="status:asc">ステータス順</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="mobile-contacts-list">
+                            <div class="mobile-card">
+                                <div class="text-center text-sm text-gray-500">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>データを読み込んでいます...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ページネーション -->
+                    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                        <div class="flex-1 flex justify-between sm:hidden">
+                            <button id="prev-page-mobile" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                                前へ
+                            </button>
+                            <span class="text-sm text-gray-700 mx-4 my-auto">
+                                <span id="current-page">1</span> / <span id="total-pages">1</span>
+                            </span>
+                            <button id="next-page-mobile" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                                次へ
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    全 <span id="total-items">0</span> 件中
+                                    <span id="start-item">0</span> - <span id="end-item">0</span> 件を表示
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <button id="first-page" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                                        <span class="sr-only">最初</span>
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </button>
+                                    <button id="prev-page" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                                        <span class="sr-only">前へ</span>
+                                        <i class="fas fa-chevron-left h-5 w-5"></i>
+                                    </button>
+                                    <div id="page-numbers" class="flex">
+                                        <!-- ページ番号がここに挿入されます -->
+                                    </div>
+                                    <button id="next-page" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                                        <span class="sr-only">次へ</span>
+                                        <i class="fas fa-chevron-right h-5 w-5"></i>
+                                    </button>
+                                    <button id="last-page" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                                        <span class="sr-only">最後</span>
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ✅ 追加: CSVエクスポート設定モーダル -->
+    <div id="csv-export-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 modal-backdrop">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white modal-content">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg font-medium text-gray-900">CSVエクスポート設定</h3>
+                <button id="close-csv-modal" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mt-4 space-y-4">
+                <!-- エクスポート範囲 -->
+                <div>
+                    <label class="text-sm font-medium text-gray-700">エクスポート範囲</label>
+                    <div class="mt-2 space-y-2">
+                        <label class="flex items-center">
+                            <input type="radio" name="export-range" value="current" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">現在の表示結果 (<span id="current-count">0</span>件)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="export-range" value="selected" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">選択中のデータ (<span id="selected-export-count">0</span>件)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="export-range" value="date-range" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">日付範囲指定</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="export-range" value="all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">全データ</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 日付範囲設定 -->
+                <div id="date-range-settings" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">開始日</label>
+                            <input type="date" id="export-start-date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">終了日</label>
+                            <input type="date" id="export-end-date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- エクスポート項目 -->
+                <div>
+                    <label class="text-sm font-medium text-gray-700">エクスポート項目</label>
+                    <div class="mt-2 grid grid-cols-2 gap-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-datetime" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">日時</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-name" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">お名前</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-email" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">メールアドレス</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-phone" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">電話番号</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-type" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">問い合わせ種別</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-status" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">ステータス</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-message" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">お問い合わせ内容</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="export-notes" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-sm text-gray-700">メモ</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ファイル形式 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">文字エンコード</label>
+                    <select id="export-encoding" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="utf8-bom">UTF-8 (BOM付き) - Excel推奨</option>
+                        <option value="utf8">UTF-8</option>
+                        <option value="shift-jis">Shift-JIS</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-csv-export" type="button" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                    キャンセル
+                </button>
+                <button id="execute-csv-export" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+                    <i class="fas fa-download mr-2"></i>エクスポート実行
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ 追加: 一括削除確認モーダル -->
+    <div id="bulk-delete-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 modal-backdrop">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/3 shadow-lg rounded-md bg-white modal-content">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg font-medium text-red-600">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>削除の確認
+                </h3>
+                <button id="close-delete-modal" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mt-4">
+                <p class="text-sm text-gray-700">
+                    選択した <span id="delete-count" class="font-semibold text-red-600">0</span> 件のお問い合わせを削除しますか？
+                </p>
+                <p class="text-sm text-red-600 mt-2">
+                    <i class="fas fa-exclamation-circle mr-1"></i>
+                    この操作は元に戻すことができません。
+                </p>
+                <div class="mt-4 max-h-32 overflow-y-auto bg-gray-50 p-3 rounded">
+                    <ul id="delete-preview-list" class="text-sm text-gray-600 space-y-1">
+                        <!-- 削除対象のリストがここに表示される -->
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-bulk-delete" type="button" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                    キャンセル
+                </button>
+                <button id="confirm-bulk-delete" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
+                    <i class="fas fa-trash mr-2"></i>削除する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ 改善: お問い合わせ詳細モーダル（リッチテキストエディタ・添付ファイル・対応履歴機能付き） -->
+    <div id="contact-detail-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 modal-backdrop">
+        <div class="relative top-10 mx-auto p-5 border modal-large shadow-lg rounded-md bg-white modal-content">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900" id="modal-title">
+                    <i class="fas fa-envelope mr-2 text-indigo-600"></i>お問い合わせ詳細
+                </h3>
+                <button id="close-modal" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- タブナビゲーション -->
+            <div class="mt-4 border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8">
+                    <button id="tab-details" class="tab-button active py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-info-circle mr-2"></i>基本情報
+                    </button>
+                    <button id="tab-response" class="tab-button py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-reply mr-2"></i>対応・メモ
+                    </button>
+                    <button id="tab-files" class="tab-button py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-paperclip mr-2"></i>添付ファイル
+                    </button>
+                    <button id="tab-history" class="tab-button py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-history mr-2"></i>対応履歴
+                    </button>
+                </nav>
+            </div>
+
+            <!-- タブコンテンツ -->
+            <div class="mt-6">
+                <!-- 基本情報タブ -->
+                <div id="content-details" class="tab-content active">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">お名前</label>
+                                <div class="p-3 bg-gray-50 rounded-md">
+                                    <p id="detail-name" class="font-medium text-gray-900">-</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">メールアドレス</label>
+                                <div class="p-3 bg-gray-50 rounded-md">
+                                    <p id="detail-email" class="font-medium text-gray-900">-</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">電話番号</label>
+                                <div class="p-3 bg-gray-50 rounded-md">
+                                    <p id="detail-phone" class="font-medium text-gray-900">-</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">問い合わせ種別</label>
+                                <div class="p-3 bg-gray-50 rounded-md">
+                                    <p id="detail-type" class="font-medium text-gray-900">-</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">お問い合わせ日時</label>
+                                <div class="p-3 bg-gray-50 rounded-md">
+                                    <p id="detail-created-at" class="font-medium text-gray-900">-</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ステータス</label>
+                                <select id="detail-status" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <option value="pending">未対応</option>
+                                    <option value="in_progress">対応中</option>
+                                    <option value="completed">対応済み</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">お問い合わせ内容</label>
+                        <div class="p-4 bg-gray-50 rounded-md max-h-48 overflow-y-auto">
+                            <div id="detail-message" class="whitespace-pre-line text-gray-900">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 対応・メモタブ -->
+                <div id="content-response" class="tab-content">
+                    <div class="space-y-6">
+                        <!-- 既存のメモ表示 -->
+                        <div id="existing-notes-section" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">既存のメモ・対応記録</label>
+                            <div class="p-4 bg-gray-50 rounded-md max-h-32 overflow-y-auto">
+                                <div id="existing-notes" class="text-gray-900 text-sm"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- リッチテキストエディタ -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-edit mr-2 text-indigo-600"></i>新しいメモ・対応記録
+                            </label>
+                            <div class="tinymce-container">
+                                <textarea id="rich-text-editor" rows="8" class="hidden"></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- エディタ機能ボタン -->
+                        <div class="flex flex-wrap gap-2">
+                            <button id="save-rich-note" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors duration-200">
+                                <i class="fas fa-save mr-2"></i>メモを保存
+                            </button>
+                            <button id="clear-editor" class="px-4 py-2 bg-gray-500 text-white rounded-md text-sm font-medium hover:bg-gray-600 transition-colors duration-200">
+                                <i class="fas fa-eraser mr-2"></i>クリア
+                            </button>
+                            <button id="preview-mode" class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600 transition-colors duration-200">
+                                <i class="fas fa-eye mr-2"></i>プレビュー
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 添付ファイルタブ -->
+                <div id="content-files" class="tab-content">
+                    <div class="space-y-6">
+                        <!-- ファイルアップロードエリア -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-cloud-upload-alt mr-2 text-indigo-600"></i>ファイルをアップロード
+                            </label>
+                            <div id="file-upload-zone" class="file-upload-zone p-8 text-center cursor-pointer">
+                                <input type="file" id="file-input" multiple accept="image/*,.pdf,.doc,.docx,.txt" class="hidden">
+                                <div class="space-y-2">
+                                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400"></i>
+                                    <p class="text-gray-600">ファイルをドラッグ&ドロップするか、クリックして選択してください</p>
+                                    <p class="text-sm text-gray-500">対応形式: 画像（PNG, JPG, GIF）、PDF、Word文書、テキストファイル</p>
+                                    <p class="text-xs text-gray-400">最大ファイルサイズ: 10MB</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- アップロード進捗 -->
+                        <div id="upload-progress" class="hidden">
+                            <div class="bg-gray-200 rounded-full h-2">
+                                <div id="progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <p id="upload-status" class="text-sm text-gray-600 mt-2">アップロード中...</p>
+                        </div>
+                        
+                        <!-- 添付ファイル一覧 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-4">
+                                <i class="fas fa-paperclip mr-2 text-indigo-600"></i>添付ファイル一覧
+                            </label>
+                            <div id="attached-files" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- ファイル一覧がここに動的に追加される -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 対応履歴タブ -->
+                <div id="content-history" class="tab-content">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <label class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-history mr-2 text-indigo-600"></i>対応履歴
+                            </label>
+                            <button id="refresh-history" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                <i class="fas fa-sync mr-1"></i>更新
+                            </button>
+                        </div>
+                        
+                        <!-- 履歴タイムライン -->
+                        <div id="history-timeline" class="history-timeline max-h-96 overflow-y-auto">
+                            <!-- 履歴アイテムがここに動的に追加される -->
+                        </div>
+                        
+                        <!-- 履歴が空の場合 -->
+                        <div id="empty-history" class="text-center py-8 text-gray-500">
+                            <i class="fas fa-clock text-4xl mb-4"></i>
+                            <p>まだ対応履歴がありません</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- モーダルフッター -->
+            <div class="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    最終更新: <span id="last-modified">-</span>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="close-modal-btn" type="button" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                        <i class="fas fa-times mr-2"></i>閉じる
+                    </button>
+                    <button id="print-details" class="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors duration-200">
+                        <i class="fas fa-print mr-2"></i>印刷
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ 修正1: Supabase初期化エラーの完全解決
+        class ContactManagerApp {
+            constructor() {
+                this.supabaseClient = null;
+                this.currentUser = null;
+                this.contacts = [];
+                this.currentPage = 1;
+                this.itemsPerPage = 10;
+                this.totalItems = 0;
+                this.currentFilters = {
+                    search: '',
+                    status: '',
+                    dateFrom: null,
+                    dateTo: null
+                };
+                this.currentContactId = null;
+                this.currentSort = {
+                    field: 'created_at',
+                    direction: 'desc'
+                };
+                this.retryCount = 0;
+                this.maxRetries = 3;
+                this.retryDelay = 2000;
+                
+                // ✅ 追加: 一括操作関連のプロパティ
+                this.selectedItems = new Set();
+                this.isSelectAllChecked = false;
+                
+                // ✅ 追加: リッチテキストエディタ関連のプロパティ
+                this.tinyMCEInstance = null;
+                this.currentTab = 'details';
+                this.attachedFiles = [];
+                this.contactHistory = [];
+            }
+
+            // 強化されたSupabase初期化
+            async initializeSupabase() {
+                try {
+                    console.log('Supabaseクライアント初期化開始...');
+                    
+                    const SUPABASE_URL = 'https://nbhjxajownbjlaqkarcm.supabase.co';
+                    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iaGp4YWpvd25iamxhcWthcmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NTU4MjIsImV4cCI6MjA2NDIzMTgyMn0.Wgo1xRaUD9v-xXtl6RvmjEDsJqn4osKnJkNonqoMqPY';
+
+                    if (!window.supabase) {
+                        throw new Error('Supabaseライブラリが読み込まれていません');
+                    }
+
+                    this.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    
+                    // 接続テスト
+                    await this.testConnection();
+                    
+                    console.log('✅ Supabaseクライアント初期化成功');
+                    this.hideConnectionStatus();
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ Supabase初期化エラー:', error);
+                    this.showError(`Supabase初期化に失敗しました: ${error.message}`);
+                    
+                    // リトライ機能
+                    if (this.retryCount < this.maxRetries) {
+                        this.retryCount++;
+                        console.log(`リトライ ${this.retryCount}/${this.maxRetries} を ${this.retryDelay/1000}秒後に実行...`);
+                        this.showConnectionStatus(`再接続試行中... (${this.retryCount}/${this.maxRetries})`);
+                        
+                        setTimeout(() => {
+                            this.initializeSupabase();
+                        }, this.retryDelay);
+                    } else {
+                        this.showError('Supabaseへの接続に失敗しました。ページを再読み込みしてください。');
+                    }
+                    return false;
+                }
+            }
+
+            // 接続テスト
+            async testConnection() {
+                try {
+                    const { data, error } = await this.supabaseClient
+                        .from('contacts')
+                        .select('id')
+                        .limit(1);
+                    
+                    if (error) throw error;
+                    console.log('✅ データベース接続テスト成功');
+                } catch (error) {
+                    throw new Error(`データベース接続テストに失敗: ${error.message}`);
+                }
+            }
+
+            // セッション確認
+            async checkSession() {
+                try {
+                    const { data: { session }, error } = await this.supabaseClient.auth.getSession();
+                    
+                    if (error) throw error;
+                    
+                    if (!session) {
+                        console.log('セッションが見つかりません。ログインページにリダイレクトします。');
+                        window.location.href = 'login.html';
+                        return false;
+                    }
+
+                    this.currentUser = session.user;
+                    document.getElementById('user-email').textContent = this.currentUser.email;
+                    console.log('✅ セッション確認成功:', this.currentUser.email);
+                    return true;
+                    
+                } catch (error) {
+                    console.error('セッション確認エラー:', error);
+                    this.showError('セッションの確認に失敗しました。再ログインしてください。');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 3000);
+                    return false;
+                }
+            }
+
+            // エラー表示
+            showError(message) {
+                const errorBanner = document.getElementById('error-banner');
+                const errorMessage = document.getElementById('error-message');
+                errorMessage.textContent = message;
+                errorBanner.classList.remove('hidden');
+                
+                // 10秒後に自動で非表示
+                setTimeout(() => {
+                    this.hideErrorBanner();
+                }, 10000);
+            }
+
+            hideErrorBanner() {
+                document.getElementById('error-banner').classList.add('hidden');
+            }
+
+            // 接続状態表示
+            showConnectionStatus(message) {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.textContent = message;
+                statusElement.classList.remove('hidden');
+            }
+
+            hideConnectionStatus() {
+                document.getElementById('connection-status').classList.add('hidden');
+            }
+
+            // アプリケーション初期化
+            async initialize() {
+                try {
+                    console.log('アプリケーション初期化開始...');
+                    this.showConnectionStatus('接続を確認中...');
+                    
+                    // Supabase初期化
+                    const supabaseSuccess = await this.initializeSupabase();
+                    if (!supabaseSuccess) return;
+                    
+                    // セッション確認
+                    const sessionSuccess = await this.checkSession();
+                    if (!sessionSuccess) return;
+                    
+                    // イベントリスナー設定
+                    this.setupEventListeners();
+                    
+                    // データ読み込み
+                    await Promise.all([
+                        this.loadContacts(),
+                        this.loadDashboardStats()
+                    ]);
+                    
+                    // 最終更新時刻を表示
+                    this.updateLastUpdated();
+                    
+                    console.log('✅ アプリケーション初期化完了');
+                    
+                } catch (error) {
+                    console.error('❌ アプリケーション初期化エラー:', error);
+                    this.showError('アプリケーションの初期化に失敗しました。ページを再読み込みしてください。');
+                }
+            }
+
+            // ✅ 修正3: 統計カードリンク機能の実装強化
+            handleFilterByToday() {
+                try {
+                    const today = new Date().toISOString().split('T')[0];
+                    this.resetAllFilters();
+                    this.currentFilters.dateFrom = today;
+                    this.currentFilters.dateTo = today;
+                    this.currentPage = 1;
+                    this.updateFilterDisplay();
+                    this.loadContacts();
+                    console.log('本日分フィルターを適用しました');
+                } catch (error) {
+                    console.error('本日分フィルターエラー:', error);
+                    this.showError('本日分の表示に失敗しました。');
+                }
+            }
+
+            handleFilterByStatus(status) {
+                try {
+                    this.resetAllFilters();
+                    this.currentFilters.status = status;
+                    document.getElementById('status-filter').value = status;
+                    this.currentPage = 1;
+                    this.updateFilterDisplay();
+                    this.loadContacts();
+                    console.log(`ステータスフィルター "${status}" を適用しました`);
+                } catch (error) {
+                    console.error('ステータスフィルターエラー:', error);
+                    this.showError('ステータスフィルターの適用に失敗しました。');
+                }
+            }
+
+            handleShowAllContacts() {
+                try {
+                    this.resetAllFilters();
+                    this.currentPage = 1;
+                    this.updateFilterDisplay();
+                    this.loadContacts();
+                    console.log('全件表示を適用しました');
+                } catch (error) {
+                    console.error('全件表示エラー:', error);
+                    this.showError('全件表示に失敗しました。');
+                }
+            }
+
+            // フィルター表示の更新
+            updateFilterDisplay() {
+                const filterStatus = document.getElementById('filter-status');
+                const activeFilters = document.getElementById('active-filters');
+                const filters = [];
+
+                if (this.currentFilters.search) {
+                    filters.push(`検索: "${this.currentFilters.search}"`);
+                }
+                if (this.currentFilters.status) {
+                    const statusLabels = {
+                        'pending': '未対応',
+                        'in_progress': '対応中',
+                        'completed': '対応済み'
+                    };
+                    filters.push(`ステータス: ${statusLabels[this.currentFilters.status]}`);
+                }
+                if (this.currentFilters.dateFrom && this.currentFilters.dateTo) {
+                    if (this.currentFilters.dateFrom === this.currentFilters.dateTo) {
+                        filters.push(`日付: ${this.currentFilters.dateFrom}`);
+                    } else {
+                        filters.push(`期間: ${this.currentFilters.dateFrom} - ${this.currentFilters.dateTo}`);
+                    }
+                }
+
+                if (filters.length > 0) {
+                    activeFilters.innerHTML = filters.map(filter => 
+                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            ${filter}
+                            <button onclick="app.resetAllFilters(); app.updateFilterDisplay(); app.loadContacts();" class="ml-1 text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>`
+                    ).join('');
+                    filterStatus.classList.remove('hidden');
+                } else {
+                    filterStatus.classList.add('hidden');
+                }
+            }
+
+            // フィルターリセット
+            resetAllFilters() {
+                document.getElementById('search').value = '';
+                document.getElementById('status-filter').value = '';
+                this.currentFilters = {
+                    search: '',
+                    status: '',
+                    dateFrom: null,
+                    dateTo: null
+                };
+            }
+
+            // ソート機能の強化
+            handleSortTable(field) {
+                try {
+                    if (this.currentSort.field === field) {
+                        this.currentSort.direction = this.currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.currentSort.field = field;
+                        this.currentSort.direction = 'asc';
+                    }
+                    
+                    this.updateSortIcons();
+                    this.loadContacts();
+                    console.log(`ソート適用: ${field} ${this.currentSort.direction}`);
+                } catch (error) {
+                    console.error('ソートエラー:', error);
+                    this.showError('ソートの適用に失敗しました。');
+                }
+            }
+
+            // ✅ 改善: ソートアイコン更新（視覚的フィードバック強化）
+            updateSortIcons() {
+                // 全てのソートアイコンをリセット
+                document.querySelectorAll('[id^="sort-"]').forEach(icon => {
+                    icon.className = 'fas fa-sort ml-1 sort-icon';
+                });
+                
+                // 現在のソート項目のアイコンを更新
+                const currentIcon = document.getElementById(`sort-${this.currentSort.field}`);
+                if (currentIcon) {
+                    currentIcon.classList.add('active');
+                    if (this.currentSort.direction === 'asc') {
+                        currentIcon.className = 'fas fa-sort-up ml-1 sort-icon active asc';
+                    } else {
+                        currentIcon.className = 'fas fa-sort-down ml-1 sort-icon active desc';
+                    }
+                }
+            }
+
+            // イベントリスナー設定
+            setupEventListeners() {
+                // 検索ボックス
+                const searchInput = document.getElementById('search');
+                let searchTimeout;
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        this.currentFilters.search = e.target.value;
+                        this.currentPage = 1;
+                        this.updateFilterDisplay();
+                        this.loadContacts();
+                    }, 500);
+                });
+
+                // ステータスフィルター
+                document.getElementById('status-filter').addEventListener('change', (e) => {
+                    this.currentFilters.status = e.target.value;
+                    this.currentPage = 1;
+                    this.updateFilterDisplay();
+                    this.loadContacts();
+                });
+
+                // リセットボタン
+                document.getElementById('reset-filters').addEventListener('click', () => {
+                    this.resetAllFilters();
+                    this.currentPage = 1;
+                    this.updateFilterDisplay();
+                    this.loadContacts();
+                });
+
+                // CSVエクスポートボタン
+                document.getElementById('export-csv-advanced').addEventListener('click', () => this.showCsvExportModal());
+
+                // ✅ 追加: 一括操作関連のイベントリスナー
+                // 全選択チェックボックス
+                document.getElementById('select-all').addEventListener('change', (e) => this.handleSelectAll(e.target.checked));
+                
+                // 一括ステータス変更
+                document.getElementById('bulk-status-change').addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.handleBulkStatusChange(e.target.value);
+                        e.target.value = ''; // リセット
+                    }
+                });
+                
+                // 一括削除
+                document.getElementById('bulk-delete').addEventListener('click', () => this.showBulkDeleteModal());
+                
+                // 選択解除
+                document.getElementById('clear-selection').addEventListener('click', () => this.clearSelection());
+
+                // ✅ 追加: CSVエクスポートモーダル関連
+                document.getElementById('close-csv-modal').addEventListener('click', () => this.closeCsvExportModal());
+                document.getElementById('cancel-csv-export').addEventListener('click', () => this.closeCsvExportModal());
+                document.getElementById('execute-csv-export').addEventListener('click', () => this.executeCsvExport());
+                
+                // 日付範囲ラジオボタンの変更
+                document.querySelectorAll('input[name="export-range"]').forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        const dateRangeSettings = document.getElementById('date-range-settings');
+                        if (e.target.value === 'date-range') {
+                            dateRangeSettings.classList.remove('hidden');
+                        } else {
+                            dateRangeSettings.classList.add('hidden');
+                        }
+                    });
+                });
+
+                // ✅ 追加: 一括削除モーダル関連
+                document.getElementById('close-delete-modal').addEventListener('click', () => this.closeBulkDeleteModal());
+                document.getElementById('cancel-bulk-delete').addEventListener('click', () => this.closeBulkDeleteModal());
+                document.getElementById('confirm-bulk-delete').addEventListener('click', () => this.executeBulkDelete());
+
+                // ✅ 追加: 詳細モーダルのタブ機能
+                document.getElementById('tab-details').addEventListener('click', () => this.switchTab('details'));
+                document.getElementById('tab-response').addEventListener('click', () => this.switchTab('response'));
+                document.getElementById('tab-files').addEventListener('click', () => this.switchTab('files'));
+                document.getElementById('tab-history').addEventListener('click', () => this.switchTab('history'));
+
+                // ✅ 追加: リッチテキストエディタ関連
+                document.getElementById('save-rich-note').addEventListener('click', () => this.saveRichNote());
+                document.getElementById('clear-editor').addEventListener('click', () => this.clearEditor());
+                document.getElementById('preview-mode').addEventListener('click', () => this.togglePreview());
+
+                // ✅ 追加: ファイルアップロード関連
+                document.getElementById('file-upload-zone').addEventListener('click', () => document.getElementById('file-input').click());
+                document.getElementById('file-input').addEventListener('change', (e) => this.handleFileSelect(e));
+                document.getElementById('file-upload-zone').addEventListener('dragover', (e) => this.handleDragOver(e));
+                document.getElementById('file-upload-zone').addEventListener('drop', (e) => this.handleFileDrop(e));
+
+                // ✅ 追加: 対応履歴関連
+                document.getElementById('refresh-history').addEventListener('click', () => this.loadContactHistory());
+
+                // ✅ 追加: その他の詳細モーダル機能
+                document.getElementById('print-details').addEventListener('click', () => this.printContactDetails());
+
+                // 更新ボタン
+                document.getElementById('refresh-data').addEventListener('click', () => {
+                    this.loadContacts();
+                    this.loadDashboardStats();
+                    this.updateLastUpdated();
+                });
+
+                // ページネーション
+                document.getElementById('prev-page').addEventListener('click', () => this.previousPage());
+                document.getElementById('next-page').addEventListener('click', () => this.nextPage());
+                document.getElementById('first-page').addEventListener('click', () => this.firstPage());
+                document.getElementById('last-page').addEventListener('click', () => this.lastPage());
+                document.getElementById('prev-page-mobile').addEventListener('click', () => this.previousPage());
+                document.getElementById('next-page-mobile').addEventListener('click', () => this.nextPage());
+
+                // ログアウト
+                document.getElementById('logout-btn').addEventListener('click', () => this.handleLogout());
+
+                // モーダル関連
+                document.getElementById('close-modal').addEventListener('click', () => this.closeModal());
+                document.getElementById('close-modal-btn').addEventListener('click', () => this.closeModal());
+
+                // ステータス変更（リアルタイム保存）
+                document.getElementById('detail-status').addEventListener('change', () => this.updateStatus());
+
+                // チャート期間変更
+                document.getElementById('chart-period').addEventListener('change', (e) => {
+                    this.loadTrendChart(parseInt(e.target.value));
+                });
+
+                // ✅ 追加: モバイル用ソート機能
+                document.getElementById('mobile-sort').addEventListener('change', (e) => {
+                    const [field, direction] = e.target.value.split(':');
+                    this.currentSort.field = field;
+                    this.currentSort.direction = direction;
+                    this.updateSortIcons();
+                    this.loadContacts();
+                });
+
+                // エラーバナー閉じるボタン
+                window.hideErrorBanner = () => this.hideErrorBanner();
+            }
+
+            // 最終更新時刻を更新
+            updateLastUpdated() {
+                const lastUpdated = document.getElementById('last-updated');
+                lastUpdated.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP')}`;
+            }
+
+            // ✅ 追加: 詳細モーダルの新機能
+
+            // タブ切り替え機能
+            switchTab(tabName) {
+                // 全てのタブを非アクティブにする
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                // 選択されたタブをアクティブにする
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+                document.getElementById(`content-${tabName}`).classList.add('active');
+                
+                this.currentTab = tabName;
+
+                // タブ切り替え時の特別処理
+                if (tabName === 'response') {
+                    this.initializeTinyMCE();
+                } else if (tabName === 'files') {
+                    this.loadAttachedFiles();
+                } else if (tabName === 'history') {
+                    this.loadContactHistory();
+                }
+            }
+
+            // TinyMCEリッチテキストエディタの初期化
+            async initializeTinyMCE() {
+                if (this.tinyMCEInstance) {
+                    return; // 既に初期化済み
+                }
+
+                try {
+                    await new Promise((resolve) => {
+                        tinymce.init({
+                            selector: '#rich-text-editor',
+                            height: 300,
+                            menubar: false,
+                            plugins: [
+                                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                                'insertdatetime', 'media', 'table', 'help', 'wordcount', 'paste'
+                            ],
+                            toolbar: 'undo redo | blocks | ' +
+                                   'bold italic backcolor | alignleft aligncenter ' +
+                                   'alignright alignjustify | bullist numlist outdent indent | ' +
+                                   'removeformat | link image | code preview | help',
+                            content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px }',
+                            paste_data_images: true,
+                            automatic_uploads: true,
+                            file_picker_types: 'image',
+                            file_picker_callback: (callback, value, meta) => {
+                                if (meta.filetype === 'image') {
+                                    const input = document.createElement('input');
+                                    input.setAttribute('type', 'file');
+                                    input.setAttribute('accept', 'image/*');
+                                    input.addEventListener('change', (e) => {
+                                        const file = e.target.files[0];
+                                        const reader = new FileReader();
+                                        reader.addEventListener('load', () => {
+                                            callback(reader.result, {
+                                                alt: file.name
+                                            });
+                                        });
+                                        reader.readAsDataURL(file);
+                                    });
+                                    input.click();
+                                }
+                            },
+                            setup: (editor) => {
+                                this.tinyMCEInstance = editor;
+                                editor.on('init', () => {
+                                    resolve();
+                                });
+                            }
+                        });
+                    });
+                    console.log('✅ TinyMCE初期化完了');
+                } catch (error) {
+                    console.error('TinyMCE初期化エラー:', error);
+                    this.showError('リッチテキストエディタの初期化に失敗しました。');
+                }
+            }
+
+            // リッチテキストメモ保存
+            async saveRichNote() {
+                if (!this.currentContactId || !this.tinyMCEInstance) {
+                    this.showError('エディタが初期化されていません。');
+                    return;
+                }
+
+                try {
+                    const content = this.tinyMCEInstance.getContent();
+                    if (!content.trim()) {
+                        this.showError('メモの内容を入力してください。');
+                        return;
+                    }
+
+                    const now = new Date().toISOString();
+                    
+                    // 新しい対応記録をhistoryテーブルに保存
+                    const { error: historyError } = await this.supabaseClient
+                        .from('contact_history')
+                        .insert({
+                            contact_id: this.currentContactId,
+                            action_type: 'note_added',
+                            content: content,
+                            user_email: this.currentUser.email,
+                            created_at: now
+                        });
+
+                    if (historyError) throw historyError;
+
+                    // contactsテーブルのupdated_atを更新
+                    const { error: updateError } = await this.supabaseClient
+                        .from('contacts')
+                        .update({ updated_at: now })
+                        .eq('id', this.currentContactId);
+
+                    if (updateError) throw updateError;
+
+                    // 成功メッセージ
+                    alert('メモを保存しました。');
+                    
+                    // エディタをクリア
+                    this.tinyMCEInstance.setContent('');
+                    
+                    // 履歴を更新
+                    await this.loadContactHistory();
+                    
+                    // 一覧を更新
+                    this.loadContacts();
+
+                } catch (error) {
+                    console.error('リッチテキストメモの保存中にエラーが発生しました:', error);
+                    this.showError('メモの保存中にエラーが発生しました。');
+                }
+            }
+
+            // エディタクリア
+            clearEditor() {
+                if (this.tinyMCEInstance) {
+                    this.tinyMCEInstance.setContent('');
+                }
+            }
+
+            // プレビューモード切り替え
+            togglePreview() {
+                if (!this.tinyMCEInstance) return;
+                
+                const isPreview = this.tinyMCEInstance.getParam('readonly');
+                if (isPreview) {
+                    this.tinyMCEInstance.mode.set('design');
+                    document.getElementById('preview-mode').innerHTML = '<i class="fas fa-eye mr-2"></i>プレビュー';
+                } else {
+                    this.tinyMCEInstance.mode.set('readonly');
+                    document.getElementById('preview-mode').innerHTML = '<i class="fas fa-edit mr-2"></i>編集';
+                }
+            }
+
+            // ✅ 追加: ファイルアップロード機能
+
+            // ファイル選択処理
+            handleFileSelect(event) {
+                const files = Array.from(event.target.files);
+                this.processFiles(files);
+            }
+
+            // ドラッグオーバー処理
+            handleDragOver(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.classList.add('dragover');
+            }
+
+            // ファイルドロップ処理
+            handleFileDrop(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.classList.remove('dragover');
+                
+                const files = Array.from(event.dataTransfer.files);
+                this.processFiles(files);
+            }
+
+            // ファイル処理
+            async processFiles(files) {
+                const maxSize = 10 * 1024 * 1024; // 10MB
+                const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+
+                for (const file of files) {
+                    // ファイルサイズチェック
+                    if (file.size > maxSize) {
+                        this.showError(`${file.name} のサイズが大きすぎます（最大10MB）。`);
+                        continue;
+                    }
+
+                    // ファイル形式チェック
+                    if (!allowedTypes.includes(file.type)) {
+                        this.showError(`${file.name} は対応していないファイル形式です。`);
+                        continue;
+                    }
+
+                    await this.uploadFile(file);
+                }
+            }
+
+            // ファイルアップロード
+            async uploadFile(file) {
+                try {
+                    this.showUploadProgress(true);
+                    
+                    // ファイル名にタイムスタンプを追加してユニーク化
+                    const timestamp = Date.now();
+                    const fileName = `${timestamp}_${file.name}`;
+                    const filePath = `contact_files/${this.currentContactId}/${fileName}`;
+
+                    // Supabase Storageにアップロード
+                    const { data, error } = await this.supabaseClient.storage
+                        .from('attachments')
+                        .upload(filePath, file, {
+                            onUploadProgress: (progress) => {
+                                const percent = (progress.loaded / progress.total) * 100;
+                                this.updateUploadProgress(percent);
+                            }
+                        });
+
+                    if (error) throw error;
+
+                    // ファイル情報をデータベースに保存
+                    const { error: dbError } = await this.supabaseClient
+                        .from('contact_files')
+                        .insert({
+                            contact_id: this.currentContactId,
+                            file_name: file.name,
+                            file_path: filePath,
+                            file_size: file.size,
+                            file_type: file.type,
+                            uploaded_by: this.currentUser.email,
+                            created_at: new Date().toISOString()
+                        });
+
+                    if (dbError) throw dbError;
+
+                    // 履歴に記録
+                    await this.addToHistory('file_uploaded', `ファイル「${file.name}」をアップロードしました`);
+
+                    // 成功メッセージ
+                    alert(`${file.name} をアップロードしました。`);
+
+                    // ファイル一覧を更新
+                    this.loadAttachedFiles();
+
+                } catch (error) {
+                    console.error('ファイルアップロードエラー:', error);
+                    this.showError(`${file.name} のアップロードに失敗しました。`);
+                } finally {
+                    this.showUploadProgress(false);
+                }
+            }
+
+            // アップロード進捗表示
+            showUploadProgress(show) {
+                const progressDiv = document.getElementById('upload-progress');
+                if (show) {
+                    progressDiv.classList.remove('hidden');
+                } else {
+                    progressDiv.classList.add('hidden');
+                    this.updateUploadProgress(0);
+                }
+            }
+
+            // アップロード進捗更新
+            updateUploadProgress(percent) {
+                const progressBar = document.getElementById('progress-bar');
+                const statusText = document.getElementById('upload-status');
+                
+                progressBar.style.width = `${percent}%`;
+                statusText.textContent = `アップロード中... ${Math.round(percent)}%`;
+            }
+
+            // 添付ファイル一覧読み込み
+            async loadAttachedFiles() {
+                if (!this.currentContactId) return;
+
+                try {
+                    const { data, error } = await this.supabaseClient
+                        .from('contact_files')
+                        .select('*')
+                        .eq('contact_id', this.currentContactId)
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+
+                    this.attachedFiles = data || [];
+                    this.renderAttachedFiles();
+
+                } catch (error) {
+                    console.error('添付ファイル読み込みエラー:', error);
+                    this.showError('添付ファイルの読み込みに失敗しました。');
+                }
+            }
+
+            // 添付ファイル一覧表示
+            renderAttachedFiles() {
+                const container = document.getElementById('attached-files');
+                
+                if (this.attachedFiles.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-span-full text-center py-8 text-gray-500">
+                            <i class="fas fa-paperclip text-4xl mb-4"></i>
+                            <p>添付ファイルはありません</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = this.attachedFiles.map(file => `
+                    <div class="file-item p-4">
+                        <div class="flex items-start space-x-3">
+                            <div class="flex-shrink-0">
+                                ${this.getFileIcon(file.file_type)}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(file.file_name)}</p>
+                                <p class="text-xs text-gray-500">${this.formatFileSize(file.file_size)}</p>
+                                <p class="text-xs text-gray-500">${new Date(file.created_at).toLocaleString('ja-JP')}</p>
+                            </div>
+                            <div class="flex-shrink-0 flex space-x-2">
+                                <button onclick="app.downloadFile('${file.id}')" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button onclick="app.deleteFile('${file.id}')" class="text-red-600 hover:text-red-800 text-sm">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // ファイルアイコン取得
+            getFileIcon(fileType) {
+                if (fileType.startsWith('image/')) {
+                    return '<i class="fas fa-image text-blue-500 text-2xl"></i>';
+                } else if (fileType === 'application/pdf') {
+                    return '<i class="fas fa-file-pdf text-red-500 text-2xl"></i>';
+                } else if (fileType.includes('word')) {
+                    return '<i class="fas fa-file-word text-blue-600 text-2xl"></i>';
+                } else {
+                    return '<i class="fas fa-file text-gray-500 text-2xl"></i>';
+                }
+            }
+
+            // ファイルサイズフォーマット
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            // ファイルダウンロード
+            async downloadFile(fileId) {
+                try {
+                    const { data: fileData, error } = await this.supabaseClient
+                        .from('contact_files')
+                        .select('*')
+                        .eq('id', fileId)
+                        .single();
+
+                    if (error) throw error;
+
+                    const { data: blob, error: downloadError } = await this.supabaseClient.storage
+                        .from('attachments')
+                        .download(fileData.file_path);
+
+                    if (downloadError) throw downloadError;
+
+                    // ブラウザでダウンロード
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileData.file_name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                } catch (error) {
+                    console.error('ファイルダウンロードエラー:', error);
+                    this.showError('ファイルのダウンロードに失敗しました。');
+                }
+            }
+
+            // ファイル削除
+            async deleteFile(fileId) {
+                if (!confirm('このファイルを削除しますか？')) return;
+
+                try {
+                    const { data: fileData, error: selectError } = await this.supabaseClient
+                        .from('contact_files')
+                        .select('*')
+                        .eq('id', fileId)
+                        .single();
+
+                    if (selectError) throw selectError;
+
+                    // ストレージからファイル削除
+                    const { error: storageError } = await this.supabaseClient.storage
+                        .from('attachments')
+                        .remove([fileData.file_path]);
+
+                    if (storageError) throw storageError;
+
+                    // データベースからレコード削除
+                    const { error: dbError } = await this.supabaseClient
+                        .from('contact_files')
+                        .delete()
+                        .eq('id', fileId);
+
+                    if (dbError) throw dbError;
+
+                    // 履歴に記録
+                    await this.addToHistory('file_deleted', `ファイル「${fileData.file_name}」を削除しました`);
+
+                    alert('ファイルを削除しました。');
+                    this.loadAttachedFiles();
+
+                } catch (error) {
+                    console.error('ファイル削除エラー:', error);
+                    this.showError('ファイルの削除に失敗しました。');
+                }
+            }
+            
+            // 行選択処理
+            handleRowSelection(contactId, isChecked) {
+                if (isChecked) {
+                    this.selectedItems.add(contactId);
+                } else {
+                    this.selectedItems.delete(contactId);
+                }
+                this.updateSelectionUI();
+            }
+
+            // 全選択処理
+            handleSelectAll(isChecked) {
+                this.isSelectAllChecked = isChecked;
+                
+                if (isChecked) {
+                    // 現在のページの全アイテムを選択
+                    this.contacts.forEach(contact => {
+                        this.selectedItems.add(contact.id);
+                    });
+                } else {
+                    // 現在のページのアイテムの選択を解除
+                    this.contacts.forEach(contact => {
+                        this.selectedItems.delete(contact.id);
+                    });
+                }
+                
+                this.updateSelectionUI();
+                this.renderContacts(); // チェックボックスの状態を更新
+            }
+
+            // 選択解除
+            clearSelection() {
+                this.selectedItems.clear();
+                this.isSelectAllChecked = false;
+                this.updateSelectionUI();
+                this.renderContacts();
+            }
+
+            // 選択UI更新
+            updateSelectionUI() {
+                const selectedCount = this.selectedItems.size;
+                const bulkToolbar = document.getElementById('bulk-toolbar');
+                const selectedCountElement = document.getElementById('selected-count');
+                const selectAllCheckbox = document.getElementById('select-all');
+
+                // 選択件数を更新
+                selectedCountElement.textContent = `${selectedCount}件選択中`;
+
+                // 一括操作ツールバーの表示/非表示
+                if (selectedCount > 0) {
+                    bulkToolbar.classList.remove('hidden');
+                    bulkToolbar.classList.add('show');
+                } else {
+                    bulkToolbar.classList.add('hidden');
+                    bulkToolbar.classList.remove('show');
+                }
+
+                // 全選択チェックボックスの状態更新
+                const currentPageIds = this.contacts.map(c => c.id);
+                const selectedInCurrentPage = currentPageIds.filter(id => this.selectedItems.has(id)).length;
+                
+                if (selectedInCurrentPage === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                } else if (selectedInCurrentPage === currentPageIds.length) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                }
+
+                // CSVエクスポートモーダルの選択件数を更新
+                const selectedExportCount = document.getElementById('selected-export-count');
+                if (selectedExportCount) {
+                    selectedExportCount.textContent = selectedCount;
+                }
+            }
+
+       // 一括ステータス変更
+async handleBulkStatusChange(newStatus) {
+    if (this.selectedItems.size === 0) {
+        this.showError('変更する項目を選択してください。');
+        return;
+    }
+
+    const confirmMessage = `選択した${this.selectedItems.size}件のステータスを「${this.getStatusLabel(newStatus)}」に変更しますか？`;
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    try {
+        this.showLoading(true);
+        
+        const selectedIds = Array.from(this.selectedItems);
+        const { error } = await this.supabaseClient
+            .from('contacts')
+            .update({ 
+                status: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .in('id', selectedIds);
+
+        if (error) throw error;
+
+        // 成功メッセージ
+        alert(`${selectedIds.length}件のステータスを更新しました。`);
+        
+        // データを再読み込み
+        this.clearSelection();
+        await this.loadContacts();
+        await this.loadDashboardStats();
+
+    } catch (error) {
+        console.error('一括ステータス変更エラー:', error);
+        this.showError('ステータスの一括変更に失敗しました。');
+    } finally {
+        this.showLoading(false);
+    }
+}
+            // 一括削除モーダル表示
+            showBulkDeleteModal() {
+                if (this.selectedItems.size === 0) {
+                    this.showError('削除する項目を選択してください。');
+                    return;
+                }
+
+                const selectedContacts = this.contacts.filter(contact => this.selectedItems.has(contact.id));
+                const deleteCount = document.getElementById('delete-count');
+                const deletePreviewList = document.getElementById('delete-preview-list');
+
+                deleteCount.textContent = this.selectedItems.size;
+                deletePreviewList.innerHTML = selectedContacts.map(contact => 
+                    `<li><i class="fas fa-user mr-2"></i>${this.escapeHtml(contact.name || 'No Name')} (${this.escapeHtml(contact.email || 'No Email')})</li>`
+                ).join('');
+
+                document.getElementById('bulk-delete-modal').classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            }
+
+            // 一括削除モーダル閉じる
+            closeBulkDeleteModal() {
+                document.getElementById('bulk-delete-modal').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+
+            // 一括削除実行
+            async executeBulkDelete() {
+                try {
+                    this.showLoading(true);
+                    
+                    const selectedIds = Array.from(this.selectedItems);
+                    const { error } = await this.supabaseClient
+                        .from('contacts')
+                        .delete()
+                        .in('id', selectedIds);
+
+                    if (error) throw error;
+
+                    // 成功メッセージ
+                    alert(`${selectedIds.length}件のお問い合わせを削除しました。`);
+                    
+                    // データを再読み込み
+                    this.clearSelection();
+                    this.closeBulkDeleteModal();
+                    await this.loadContacts();
+                    await this.loadDashboardStats();
+
+                } catch (error) {
+                    console.error('一括削除エラー:', error);
+                    this.showError('一括削除に失敗しました。');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // ✅ 追加: 高機能CSVエクスポート関連メソッド
+
+            // CSVエクスポートモーダル表示
+            showCsvExportModal() {
+                // 現在の表示件数を更新
+                document.getElementById('current-count').textContent = this.totalItems;
+                
+                // 今日の日付をデフォルト値として設定
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('export-start-date').value = today;
+                document.getElementById('export-end-date').value = today;
+
+                document.getElementById('csv-export-modal').classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            }
+
+            // CSVエクスポートモーダル閉じる
+            closeCsvExportModal() {
+                document.getElementById('csv-export-modal').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+
+            // CSVエクスポート実行
+            async executeCsvExport() {
+                try {
+                    this.showLoading(true);
+                    
+                    // エクスポート設定を取得
+                    const exportRange = document.querySelector('input[name="export-range"]:checked').value;
+                    const encoding = document.getElementById('export-encoding').value;
+                    
+                    // エクスポート項目を取得
+                    const exportFields = {
+                        datetime: document.getElementById('export-datetime').checked,
+                        name: document.getElementById('export-name').checked,
+                        email: document.getElementById('export-email').checked,
+                        phone: document.getElementById('export-phone').checked,
+                        type: document.getElementById('export-type').checked,
+                        status: document.getElementById('export-status').checked,
+                        message: document.getElementById('export-message').checked,
+                        notes: document.getElementById('export-notes').checked
+                    };
+
+                    // データを取得
+                    let dataToExport = [];
+                    
+                    switch (exportRange) {
+                        case 'current':
+                            // 現在の表示結果
+                            dataToExport = await this.getCurrentFilteredData();
+                            break;
+                        case 'selected':
+                            // 選択中のデータ
+                            if (this.selectedItems.size === 0) {
+                                this.showError('エクスポートするデータを選択してください。');
+                                return;
+                            }
+                            dataToExport = await this.getSelectedData();
+                            break;
+                        case 'date-range':
+                            // 日付範囲指定
+                            const startDate = document.getElementById('export-start-date').value;
+                            const endDate = document.getElementById('export-end-date').value;
+                            if (!startDate || !endDate) {
+                                this.showError('開始日と終了日を指定してください。');
+                                return;
+                            }
+                            dataToExport = await this.getDateRangeData(startDate, endDate);
+                            break;
+                        case 'all':
+                            // 全データ
+                            dataToExport = await this.getAllData();
+                            break;
+                    }
+
+                    if (dataToExport.length === 0) {
+                        this.showError('エクスポートするデータがありません。');
+                        return;
+                    }
+
+                    // CSVデータを生成
+                    const csvData = this.generateAdvancedCSV(dataToExport, exportFields, encoding);
+                    
+                    // ファイルをダウンロード
+                    const filename = `contacts_${exportRange}_${new Date().toISOString().split('T')[0]}.csv`;
+                    this.downloadCSV(csvData, filename);
+                    
+                    // モーダルを閉じる
+                    this.closeCsvExportModal();
+                    
+                    alert(`${dataToExport.length}件のデータをエクスポートしました。`);
+                    
+                } catch (error) {
+                    console.error('CSVエクスポートエラー:', error);
+                    this.showError('CSVエクスポートに失敗しました。');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // 現在のフィルター条件でデータ取得
+            async getCurrentFilteredData() {
+                let query = this.supabaseClient.from('contacts').select('*');
+                
+                // 現在のフィルター条件を適用
+                if (this.currentFilters.search) {
+                    const searchTerm = `%${this.currentFilters.search}%`;
+                    query = query.or(`name.ilike.${searchTerm},email.ilike.${searchTerm},message.ilike.${searchTerm}`);
+                }
+                if (this.currentFilters.status) {
+                    query = query.eq('status', this.currentFilters.status);
+                }
+                if (this.currentFilters.dateFrom && this.currentFilters.dateTo) {
+                    query = query.gte('created_at', this.currentFilters.dateFrom + 'T00:00:00.000Z')
+                                 .lte('created_at', this.currentFilters.dateTo + 'T23:59:59.999Z');
+                }
+                
+                const { data, error } = await query;
+                if (error) throw error;
+                return data || [];
+            }
+
+            // 選択中のデータ取得
+            async getSelectedData() {
+                const selectedIds = Array.from(this.selectedItems);
+                const { data, error } = await this.supabaseClient
+                    .from('contacts')
+                    .select('*')
+                    .in('id', selectedIds);
+                
+                if (error) throw error;
+                return data || [];
+            }
+
+            // 日付範囲指定でデータ取得
+            async getDateRangeData(startDate, endDate) {
+                const { data, error } = await this.supabaseClient
+                    .from('contacts')
+                    .select('*')
+                    .gte('created_at', startDate + 'T00:00:00.000Z')
+                    .lte('created_at', endDate + 'T23:59:59.999Z');
+                
+                if (error) throw error;
+                return data || [];
+            }
+
+            // 全データ取得
+            async getAllData() {
+                const { data, error } = await this.supabaseClient
+                    .from('contacts')
+                    .select('*');
+                
+                if (error) throw error;
+                return data || [];
+            }
+
+            // 高機能CSV生成
+            generateAdvancedCSV(data, exportFields, encoding) {
+                const headers = [];
+                const fieldMap = [];
+
+                if (exportFields.datetime) {
+                    headers.push('日時');
+                    fieldMap.push(contact => new Date(contact.created_at).toLocaleString('ja-JP'));
+                }
+                if (exportFields.name) {
+                    headers.push('お名前');
+                    fieldMap.push(contact => contact.name || '');
+                }
+                if (exportFields.email) {
+                    headers.push('メールアドレス');
+                    fieldMap.push(contact => contact.email || '');
+                }
+                if (exportFields.phone) {
+                    headers.push('電話番号');
+                    fieldMap.push(contact => contact.phone || '');
+                }
+                if (exportFields.type) {
+                    headers.push('問い合わせ種別');
+                    fieldMap.push(contact => this.getTypeLabel(contact.inquiry_type));
+                }
+                if (exportFields.status) {
+                    headers.push('ステータス');
+                    fieldMap.push(contact => this.getStatusLabel(contact.status));
+                }
+                if (exportFields.message) {
+                    headers.push('お問い合わせ内容');
+                    fieldMap.push(contact => (contact.message || '').replace(/"/g, '""'));
+                }
+                if (exportFields.notes) {
+                    headers.push('メモ');
+                    fieldMap.push(contact => (contact.notes || '').replace(/"/g, '""'));
+                }
+
+                const rows = data.map(contact => 
+                    fieldMap.map(fn => fn(contact))
+                );
+
+                const csvContent = [headers, ...rows]
+                    .map(row => row.map(field => `"${field}"`).join(','))
+                    .join('\n');
+
+                // エンコーディング処理
+                switch (encoding) {
+                    case 'utf8-bom':
+                        return '\uFEFF' + csvContent;
+                    case 'shift-jis':
+                        // 実際の環境ではShift-JISエンコーディングライブラリが必要
+                        console.warn('Shift-JISエンコーディングは未実装です。UTF-8で出力します。');
+                        return csvContent;
+                    default:
+                        return csvContent;
+                }
+            }
+
+            // お問い合わせ一覧を読み込む（選択状態を保持）
+            async loadContacts() {
+                try {
+                    this.showLoading(true);
+                    
+                    let query = this.supabaseClient
+                        .from('contacts')
+                        .select('*', { count: 'exact' });
+
+                    // ソートを適用
+                    const ascending = this.currentSort.direction === 'asc';
+                    query = query.order(this.currentSort.field, { ascending });
+
+                    // 検索条件を適用
+                    if (this.currentFilters.search) {
+                        const searchTerm = `%${this.currentFilters.search}%`;
+                        query = query.or(`name.ilike.${searchTerm},email.ilike.${searchTerm},message.ilike.${searchTerm}`);
+                    }
+
+                    if (this.currentFilters.status) {
+                        query = query.eq('status', this.currentFilters.status);
+                    }
+
+                    // 日付フィルター
+                    if (this.currentFilters.dateFrom && this.currentFilters.dateTo) {
+                        query = query.gte('created_at', this.currentFilters.dateFrom + 'T00:00:00.000Z')
+                                     .lte('created_at', this.currentFilters.dateTo + 'T23:59:59.999Z');
+                    }
+
+                    // ページネーションを適用
+                    const from = (this.currentPage - 1) * this.itemsPerPage;
+                    const to = from + this.itemsPerPage - 1;
+                    
+                    const { data, count, error } = await query.range(from, to);
+
+                    if (error) throw error;
+
+                    this.contacts = data || [];
+                    this.totalItems = count || 0;
+
+                    this.renderContacts();
+                    this.updatePagination();
+
+                } catch (error) {
+                    console.error('お問い合わせの読み込み中にエラーが発生しました:', error);
+                    this.showError('お問い合わせの読み込み中にエラーが発生しました。');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // ✅ 改善: お問い合わせ一覧を表示（一括選択機能付き）
+            renderContacts() {
+                const tbody = document.getElementById('contacts-table-body');
+                const mobileContainer = document.getElementById('mobile-contacts-list');
+                
+                if (this.contacts.length === 0) {
+                    // デスクトップ用
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                                該当するお問い合わせはありません。
+                            </td>
+                        </tr>
+                    `;
+                    // モバイル用
+                    mobileContainer.innerHTML = `
+                        <div class="mobile-card">
+                            <div class="text-center text-sm text-gray-500">
+                                該当するお問い合わせはありません。
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // デスクトップ用テーブル
+                tbody.innerHTML = this.contacts.map(contact => {
+                    const isSelected = this.selectedItems.has(contact.id);
+                    return `
+                        <tr class="hover:bg-gray-50 transition-colors duration-200 ${isSelected ? 'row-selected' : ''}" data-contact-id="${contact.id}">
+                            <td class="checkbox-cell px-6 py-4 whitespace-nowrap">
+                                <input type="checkbox" class="row-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-colors duration-200" 
+                                       value="${contact.id}" ${isSelected ? 'checked' : ''} 
+                                       onchange="app.handleRowSelection('${contact.id}', this.checked)">
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${new Date(contact.created_at).toLocaleString('ja-JP')}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">${this.escapeHtml(contact.name || '-')}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${this.escapeHtml(contact.email || '-')}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 responsive-hide">
+                                ${this.getTypeLabel(contact.inquiry_type)}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                ${this.getStatusBadge(contact.status)}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200 touch-target" onclick="app.viewContact('${contact.id}')">
+                                    <i class="fas fa-eye mr-1"></i>詳細
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // モバイル用カード表示（選択機能付き）
+                mobileContainer.innerHTML = this.contacts.map(contact => {
+                    const isSelected = this.selectedItems.has(contact.id);
+                    return `
+                        <div class="mobile-card ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}" data-contact-id="${contact.id}">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="flex items-start space-x-3 flex-1">
+                                    <input type="checkbox" class="row-checkbox mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                                           value="${contact.id}" ${isSelected ? 'checked' : ''} 
+                                           onchange="app.handleRowSelection('${contact.id}', this.checked)">
+                                    <div class="flex-1">
+                                        <h4 class="text-sm font-medium text-gray-900">${this.escapeHtml(contact.name || '-')}</h4>
+                                        <p class="text-xs text-gray-500 mt-1">${this.escapeHtml(contact.email || '-')}</p>
+                                    </div>
+                                </div>
+                                <div class="ml-4 flex-shrink-0">
+                                    ${this.getStatusBadge(contact.status)}
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-gray-500">
+                                <span>${new Date(contact.created_at).toLocaleDateString('ja-JP')}</span>
+                                <span>${this.getTypeLabel(contact.inquiry_type)}</span>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600 line-clamp-2">
+                                ${this.escapeHtml((contact.message || '').substring(0, 60))}${contact.message && contact.message.length > 60 ? '...' : ''}
+                            </div>
+                            <div class="mt-2 flex justify-end">
+                                <button onclick="app.viewContact('${contact.id}')" class="text-indigo-600 text-xs font-medium touch-target">
+                                    <i class="fas fa-eye mr-1"></i>詳細を見る
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                // 選択状態を更新
+                this.updateSelectionUI();
+            }
+
+            // ローディング状態を表示
+            showLoading(isLoading) {
+                const tbody = document.getElementById('contacts-table-body');
+                const mobileContainer = document.getElementById('mobile-contacts-list');
+                
+                if (isLoading && tbody.children.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>読み込み中...
+                            </td>
+                        </tr>
+                    `;
+                }
+                
+                if (isLoading && mobileContainer && mobileContainer.children.length === 0) {
+                    mobileContainer.innerHTML = `
+                        <div class="mobile-card">
+                            <div class="text-center text-sm text-gray-500">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>読み込み中...
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // ページネーション関数
+            previousPage() {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.loadContacts();
+                }
+            }
+
+            nextPage() {
+                const totalPages = Math.ceil(this.totalItems / this.itemsPerPage);
+                if (this.currentPage < totalPages) {
+                    this.currentPage++;
+                    this.loadContacts();
+                }
+            }
+
+            firstPage() {
+                this.currentPage = 1;
+                this.loadContacts();
+            }
+
+            lastPage() {
+                this.currentPage = Math.ceil(this.totalItems / this.itemsPerPage);
+                this.loadContacts();
+            }
+
+            // ページネーションを更新
+            updatePagination() {
+                const totalPages = Math.ceil(this.totalItems / this.itemsPerPage);
+                const start = Math.max(1, (this.currentPage - 1) * this.itemsPerPage + 1);
+                const end = Math.min(this.currentPage * this.itemsPerPage, this.totalItems);
+
+                // ページネーション情報を更新
+                document.getElementById('total-items').textContent = this.totalItems;
+                document.getElementById('start-item').textContent = start;
+                document.getElementById('end-item').textContent = end;
+                document.getElementById('current-page').textContent = this.currentPage;
+                document.getElementById('total-pages').textContent = totalPages;
+
+                // ボタンの状態を更新
+                const prevButtons = [document.getElementById('prev-page'), document.getElementById('prev-page-mobile')];
+                const nextButtons = [document.getElementById('next-page'), document.getElementById('next-page-mobile')];
+                
+                prevButtons.forEach(btn => {
+                    if (btn) btn.disabled = this.currentPage === 1;
+                });
+                
+                nextButtons.forEach(btn => {
+                    if (btn) btn.disabled = this.currentPage >= totalPages;
+                });
+
+                const firstBtn = document.getElementById('first-page');
+                const lastBtn = document.getElementById('last-page');
+                if (firstBtn) firstBtn.disabled = this.currentPage === 1;
+                if (lastBtn) lastBtn.disabled = this.currentPage >= totalPages;
+
+                this.updatePageNumbers(totalPages);
+            }
+
+            // ページ番号を更新
+            updatePageNumbers(totalPages) {
+                const pageNumbers = document.getElementById('page-numbers');
+                if (!pageNumbers) return;
+                
+                pageNumbers.innerHTML = '';
+
+                const maxPagesToShow = 5;
+                let startPage = Math.max(1, this.currentPage - Math.floor(maxPagesToShow / 2));
+                let endPage = Math.min(startPage + maxPagesToShow - 1, totalPages);
+
+                if (endPage - startPage + 1 < maxPagesToShow) {
+                    startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                }
+
+                // 最初のページへのリンク
+                if (startPage > 1) {
+                    const firstPage = this.createPageButton('1', 1, this.currentPage === 1);
+                    pageNumbers.appendChild(firstPage);
+
+                    if (startPage > 2) {
+                        const ellipsis = document.createElement('span');
+                        ellipsis.className = 'relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700';
+                        ellipsis.textContent = '...';
+                        pageNumbers.appendChild(ellipsis);
+                    }
+                }
+
+                // ページ番号
+                for (let i = startPage; i <= endPage; i++) {
+                    const pageBtn = this.createPageButton(i.toString(), i, i === this.currentPage);
+                    pageNumbers.appendChild(pageBtn);
+                }
+
+                // 最後のページへのリンク
+                if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                        const ellipsis = document.createElement('span');
+                        ellipsis.className = 'relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700';
+                        ellipsis.textContent = '...';
+                        pageNumbers.appendChild(ellipsis);
+                    }
+
+                    const lastPage = this.createPageButton(totalPages.toString(), totalPages, this.currentPage === totalPages);
+                    pageNumbers.appendChild(lastPage);
+                }
+            }
+
+            // ページボタンを作成
+            createPageButton(text, pageNum, isActive) {
+                const button = document.createElement('button');
+                button.textContent = text;
+                button.className = `relative inline-flex items-center px-4 py-2 border ${
+                    isActive 
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-600' 
+                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                } text-sm font-medium transition-colors duration-200`;
+                
+                if (!isActive) {
+                    button.addEventListener('click', () => {
+                        this.currentPage = pageNum;
+                        this.loadContacts();
+                    });
+                }
+                
+                return button;
+            }
+
+            // CSVエクスポート機能
+            async exportToCSV() {
+                try {
+                    this.showLoading(true);
+                    
+                    // 全データを取得（フィルター適用）
+                    let query = this.supabaseClient
+                        .from('contacts')
+                        .select('*');
+
+                    // 現在のフィルターを適用
+                    if (this.currentFilters.search) {
+                        const searchTerm = `%${this.currentFilters.search}%`;
+                        query = query.or(`name.ilike.${searchTerm},email.ilike.${searchTerm},message.ilike.${searchTerm}`);
+                    }
+
+                    if (this.currentFilters.status) {
+                        query = query.eq('status', this.currentFilters.status);
+                    }
+
+                    if (this.currentFilters.dateFrom && this.currentFilters.dateTo) {
+                        query = query.gte('created_at', this.currentFilters.dateFrom + 'T00:00:00.000Z')
+                                     .lte('created_at', this.currentFilters.dateTo + 'T23:59:59.999Z');
+                    }
+
+                    const { data, error } = await query;
+                    if (error) throw error;
+
+                    // CSVデータを生成
+                    const csvData = this.generateCSV(data);
+                    
+                    // ファイルをダウンロード
+                    this.downloadCSV(csvData, `contacts_${new Date().toISOString().split('T')[0]}.csv`);
+                    
+                } catch (error) {
+                    console.error('CSVエクスポートエラー:', error);
+                    this.showError('CSVエクスポートに失敗しました。');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // CSV生成
+            generateCSV(data) {
+                const headers = ['日時', 'お名前', 'メールアドレス', '電話番号', '問い合わせ種別', 'ステータス', 'お問い合わせ内容', 'メモ'];
+                
+                const rows = data.map(contact => [
+                    new Date(contact.created_at).toLocaleString('ja-JP'),
+                    contact.name || '',
+                    contact.email || '',
+                    contact.phone || '',
+                    this.getTypeLabel(contact.inquiry_type),
+                    this.getStatusLabel(contact.status),
+                    (contact.message || '').replace(/"/g, '""'),
+                    (contact.notes || '').replace(/"/g, '""')
+                ]);
+                
+                const csvContent = [headers, ...rows]
+                    .map(row => row.map(field => `"${field}"`).join(','))
+                    .join('\n');
+                    
+                return '\uFEFF' + csvContent; // BOM付きでUTF-8エンコーディング
+            }
+
+            // CSV ダウンロード
+            downloadCSV(csvContent, filename) {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                
+                if (link.download !== undefined) {
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            }
+
+            // ✅ 改善: お問い合わせ詳細を表示（新機能統合版）
+            async viewContact(contactId) {
+                try {
+                    this.showLoading(true);
+                    this.currentContactId = contactId;
+                    
+                    const { data: contact, error } = await this.supabaseClient
+                        .from('contacts')
+                        .select('*')
+                        .eq('id', contactId)
+                        .single();
+
+                    if (error) throw error;
+
+                    // モーダルにデータを表示
+                    document.getElementById('detail-name').textContent = contact.name || '-';
+                    document.getElementById('detail-email').textContent = contact.email || '-';
+                    document.getElementById('detail-phone').textContent = contact.phone || '-';
+                    document.getElementById('detail-type').textContent = this.getTypeLabel(contact.inquiry_type);
+                    document.getElementById('detail-created-at').textContent = new Date(contact.created_at).toLocaleString('ja-JP');
+                    document.getElementById('detail-message').textContent = contact.message || '-';
+                    document.getElementById('detail-status').value = contact.status || 'pending';
+                    document.getElementById('last-modified').textContent = contact.updated_at ? new Date(contact.updated_at).toLocaleString('ja-JP') : '未更新';
+
+                    // 既存のメモがあれば表示
+                    const existingNotesSection = document.getElementById('existing-notes-section');
+                    const existingNotes = document.getElementById('existing-notes');
+                    if (contact.notes) {
+                        existingNotes.textContent = contact.notes;
+                        existingNotesSection.classList.remove('hidden');
+                    } else {
+                        existingNotesSection.classList.add('hidden');
+                    }
+
+                    // デフォルトタブを基本情報に設定
+                    this.switchTab('details');
+
+                    // モーダルを表示
+                    document.getElementById('contact-detail-modal').classList.remove('hidden');
+                    document.body.classList.add('overflow-hidden');
+
+                } catch (error) {
+                    console.error('お問い合わせの詳細取得中にエラーが発生しました:', error);
+                    this.showError('お問い合わせの詳細を取得できませんでした。');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // ✅ 改善: ステータスを更新（履歴記録機能付き）
+            async updateStatus() {
+                if (!this.currentContactId) return;
+
+                try {
+                    const newStatus = document.getElementById('detail-status').value;
+                    
+                    // 現在のステータスを取得
+                    const { data: currentContact, error: fetchError } = await this.supabaseClient
+                        .from('contacts')
+                        .select('status')
+                        .eq('id', this.currentContactId)
+                        .single();
+
+                    if (fetchError) throw fetchError;
+
+                    const oldStatus = currentContact.status;
+                    
+                    // 同じステータスの場合は何もしない
+                    if (oldStatus === newStatus) return;
+
+                    const { error } = await this.supabaseClient
+                        .from('contacts')
+                        .update({ 
+                            status: newStatus,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', this.currentContactId);
+
+                    if (error) throw error;
+
+                    // 履歴に記録
+                    await this.addToHistory('status_change', '', oldStatus, newStatus);
+
+                    // 一覧と統計を更新
+                    this.loadContacts();
+                    this.loadDashboardStats();
+                    
+                    // 履歴タブが表示されている場合は履歴を更新
+                    if (this.currentTab === 'history') {
+                        this.loadContactHistory();
+                    }
+
+                } catch (error) {
+                    console.error('ステータスの更新中にエラーが発生しました:', error);
+                    this.showError('ステータスの更新中にエラーが発生しました。');
+                }
+            }
+
+            // ✅ 改善: モーダルを閉じる（TinyMCEクリーンアップ付き）
+            closeModal() {
+                // TinyMCEをクリーンアップ
+                if (this.tinyMCEInstance) {
+                    this.tinyMCEInstance.destroy();
+                    this.tinyMCEInstance = null;
+                }
+
+                document.getElementById('contact-detail-modal').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                this.currentContactId = null;
+                this.currentTab = 'details';
+                
+                // タブを初期状態にリセット
+                this.switchTab('details');
+                
+                // ファイル関連の状態をリセット
+                this.attachedFiles = [];
+                this.contactHistory = [];
+                this.showUploadProgress(false);
+            }
+
+            // ダッシュボードの統計情報を読み込む
+            async loadDashboardStats() {
+                try {
+                    // 今日の日付を取得
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    
+                    const startOfToday = new Date(today);
+                    startOfToday.setHours(0, 0, 0, 0);
+                    
+                    const startOfYesterday = new Date(yesterday);
+                    startOfYesterday.setHours(0, 0, 0, 0);
+                    
+                    // 今月と先月の初日を取得
+                    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                    
+                    // 各種カウントを並行して取得
+                    const [todayResult, yesterdayResult, pendingResult, inProgressResult, monthlyResult, lastMonthlyResult] = await Promise.all([
+                        // 今日の新規問い合わせ数
+                        this.supabaseClient
+                            .from('contacts')
+                            .select('*', { count: 'exact', head: true })
+                            .gte('created_at', startOfToday.toISOString()),
+                        
+                        // 昨日の新規問い合わせ数
+                        this.supabaseClient
+                            .from('contacts')
+                            .select('*', { count: 'exact', head: true })
+                            .gte('created_at', startOfYesterday.toISOString())
+                            .lt('created_at', startOfToday.toISOString()),
+                        
+                        // 未対応の問い合わせ数
+                        this.supabaseClient
+                            .from('contacts')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('status', 'pending'),
+                        
+                        // 対応中の問い合わせ数
+                        this.supabaseClient
+                            .from('contacts')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('status', 'in_progress'),
+                        
+                        // 今月の総問い合わせ数
+                        this.supabaseClient
+                            .from('contacts')
+                            .select('*', { count: 'exact', head: true })
+                            .gte('created_at', startOfMonth.toISOString()),
+                        
+                        // 先月の総問い合わせ数
+                        this.supabaseClient
+                            .from('contacts')
+                            .select('*', { count: 'exact', head: true })
+                            .gte('created_at', startOfLastMonth.toISOString())
+                            .lte('created_at', endOfLastMonth.toISOString())
+                    ]);
+                    
+                    const todayCount = todayResult.count || 0;
+                    const yesterdayCount = yesterdayResult.count || 0;
+                    const pendingCount = pendingResult.count || 0;
+                    const inProgressCount = inProgressResult.count || 0;
+                    const monthlyCount = monthlyResult.count || 0;
+                    const lastMonthlyCount = lastMonthlyResult.count || 0;
+                    
+                    // 数値を表示
+                    document.getElementById('today-count').textContent = todayCount;
+                    document.getElementById('pending-count').textContent = pendingCount;
+                    document.getElementById('in-progress-count').textContent = inProgressCount;
+                    document.getElementById('monthly-count').textContent = monthlyCount;
+                    
+                    // 前日比を表示
+                    this.updateChangeIndicator('today-change', todayCount, yesterdayCount);
+                    
+                    // 前月比を表示
+                    this.updateChangeIndicator('monthly-change', monthlyCount, lastMonthlyCount);
+                    
+                    // グラフを読み込む
+                    this.loadTrendChart(30);
+                    
+                } catch (error) {
+                    console.error('ダッシュボードの統計情報の読み込み中にエラーが発生しました:', error);
+                    this.showError('ダッシュボードの統計情報の読み込みに失敗しました。');
+                }
+            }
+
+            // ✅ 改善: 変化インジケーターを更新（詳細な前日比・前月比表示）
+            updateChangeIndicator(elementId, current, previous, type = 'daily') {
+                const element = document.getElementById(elementId);
+                const comparisonElement = document.getElementById(elementId.replace('-change', '-comparison'));
+                
+                if (!element) return;
+                
+                if (previous === 0 && current === 0) {
+                    element.innerHTML = '<span class="text-xs text-gray-500">件</span>';
+                    if (comparisonElement) {
+                        comparisonElement.innerHTML = `<span class="text-gray-500">前${type === 'daily' ? '日' : '月'}のデータなし</span>`;
+                    }
+                    return;
+                }
+                
+                const change = current - previous;
+                const percentage = previous > 0 ? Math.round((change / previous) * 100) : 0;
+                const absChange = Math.abs(change);
+                
+                let changeHtml = '';
+                let comparisonHtml = '';
+                
+                if (change > 0) {
+                    changeHtml = `
+                        <span class="text-xs text-green-600 font-semibold">
+                            <i class="fas fa-arrow-up"></i> +${percentage}%
+                        </span>
+                    `;
+                    comparisonHtml = `
+                        <span class="text-green-600">
+                            <i class="fas fa-arrow-up mr-1"></i>
+                            前${type === 'daily' ? '日' : '月'}より +${absChange}件 (${percentage}%増)
+                        </span>
+                    `;
+                } else if (change < 0) {
+                    changeHtml = `
+                        <span class="text-xs text-red-600 font-semibold">
+                            <i class="fas fa-arrow-down"></i> ${percentage}%
+                        </span>
+                    `;
+                    comparisonHtml = `
+                        <span class="text-red-600">
+                            <i class="fas fa-arrow-down mr-1"></i>
+                            前${type === 'daily' ? '日' : '月'}より -${absChange}件 (${Math.abs(percentage)}%減)
+                        </span>
+                    `;
+                } else {
+                    changeHtml = `
+                        <span class="text-xs text-gray-500 font-semibold">
+                            <i class="fas fa-minus"></i> 0%
+                        </span>
+                    `;
+                    comparisonHtml = `
+                        <span class="text-gray-500">
+                            <i class="fas fa-minus mr-1"></i>
+                            前${type === 'daily' ? '日' : '月'}と変化なし
+                        </span>
+                    `;
+                }
+                
+                element.innerHTML = changeHtml;
+                if (comparisonElement) {
+                    comparisonElement.innerHTML = comparisonHtml;
+                }
+            }
+
+            // トレンドグラフを読み込む
+            async loadTrendChart(days = 30) {
+                try {
+                    // 指定された日数前の日付を計算
+                    const endDate = new Date();
+                    const startDate = new Date();
+                    startDate.setDate(endDate.getDate() - days + 1);
+                    startDate.setHours(0, 0, 0, 0);
+                    
+                    // 日付範囲のラベルを生成
+                    const dateLabels = [];
+                    const currentDate = new Date(startDate);
+                    while (currentDate <= endDate) {
+                        dateLabels.push(new Date(currentDate).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }));
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    
+                    // 日付範囲のデータを取得
+                    const { data: trendData, error } = await this.supabaseClient
+                        .from('contacts')
+                        .select('created_at')
+                        .gte('created_at', startDate.toISOString())
+                        .lte('created_at', endDate.toISOString());
+                    
+                    if (error) throw error;
+                    
+                    // 日付ごとのカウントを集計
+                    const counts = new Array(days).fill(0);
+                    trendData.forEach(contact => {
+                        const contactDate = new Date(contact.created_at);
+                        const dayIndex = Math.floor((contactDate - startDate) / (1000 * 60 * 60 * 24));
+                        if (dayIndex >= 0 && dayIndex < days) {
+                            counts[dayIndex]++;
+                        }
+                    });
+                    
+                    // グラフを描画
+                    this.renderTrendChart(dateLabels, counts);
+                    
+                } catch (error) {
+                    console.error('トレンドグラフの読み込み中にエラーが発生しました:', error);
+                    this.showError('トレンドグラフの読み込みに失敗しました。');
+                }
+            }
+
+            // トレンドグラフを描画
+            renderTrendChart(labels, data) {
+                const ctx = document.getElementById('trend-chart').getContext('2d');
+                
+                // 既存のグラフが存在する場合は破棄
+                if (window.trendChart) {
+                    window.trendChart.destroy();
+                }
+                
+                window.trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '問い合わせ数',
+                            data: data,
+                            backgroundColor: 'rgba(79, 70, 229, 0.05)',
+                            borderColor: 'rgba(79, 70, 229, 0.8)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'white',
+                            pointBorderColor: 'rgba(79, 70, 229, 0.8)',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleFont: {
+                                    size: 14
+                                },
+                                bodyFont: {
+                                    size: 14
+                                },
+                                callbacks: {
+                                    label: function(context) {
+                                        return `問い合わせ数: ${context.raw}件`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0,
+                                    callback: function(value) {
+                                        return value % 1 === 0 ? value : null;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ログアウト処理
+            async handleLogout() {
+                try {
+                    const { error } = await this.supabaseClient.auth.signOut();
+                    if (error) throw error;
+                    window.location.href = 'login.html';
+                } catch (error) {
+                    console.error('ログアウト中にエラーが発生しました:', error);
+                    this.showError('ログアウト中にエラーが発生しました。');
+                }
+            }
+
+            // ✅ 追加: 緊急度インジケーターを更新
+            updateUrgencyIndicators(pendingCount, inProgressCount) {
+                const pendingUrgency = document.getElementById('pending-urgency');
+                const progressStatus = document.getElementById('progress-status');
+                
+                // 未対応の緊急度
+                if (pendingUrgency) {
+                    if (pendingCount === 0) {
+                        pendingUrgency.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>未対応なし</span>';
+                    } else if (pendingCount <= 5) {
+                        pendingUrgency.innerHTML = '<span class="text-yellow-600"><i class="fas fa-clock mr-1"></i>通常レベル</span>';
+                    } else if (pendingCount <= 10) {
+                        pendingUrgency.innerHTML = '<span class="text-orange-600"><i class="fas fa-exclamation-triangle mr-1"></i>注意が必要</span>';
+                    } else {
+                        pendingUrgency.innerHTML = '<span class="text-red-600"><i class="fas fa-fire mr-1"></i>緊急対応が必要</span>';
+                    }
+                }
+                
+                // 対応中の状況
+                if (progressStatus) {
+                    if (inProgressCount === 0) {
+                        progressStatus.innerHTML = '<span class="text-gray-500">対応中案件なし</span>';
+                    } else {
+                        progressStatus.innerHTML = `<span class="text-blue-600"><i class="fas fa-cogs mr-1"></i>${inProgressCount}件対応中</span>`;
+                    }
+                }
+            }
+
+            // ヘルパー関数
+            getStatusBadge(status) {
+                const statusMap = {
+                    'pending': { text: '未対応', color: 'bg-yellow-100 text-yellow-800' },
+                    'in_progress': { text: '対応中', color: 'bg-blue-100 text-blue-800' },
+                    'completed': { text: '対応済み', color: 'bg-green-100 text-green-800' }
+                };
+                
+                const statusInfo = statusMap[status] || { text: status, color: 'bg-gray-100 text-gray-800' };
+                return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusInfo.color}">
+                    ${statusInfo.text}
+                </span>`;
+            }
+
+            getStatusLabel(status) {
+                const statusMap = {
+                    'pending': '未対応',
+                    'in_progress': '対応中',
+                    'completed': '対応済み'
+                };
+                return statusMap[status] || status;
+            }
+
+            getTypeLabel(type) {
+                const typeMap = {
+                    'general': '一般問い合わせ',
+                    'support': 'サポート',
+                    'business': '業務提携',
+                    'other': 'その他'
+                };
+                return typeMap[type] || type;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // アプリケーションインスタンスを作成してグローバルに公開
+        const app = new ContactManagerApp();
+
+        // ページロード時の初期化
+        window.addEventListener('load', () => {
+            app.initialize();
+        });
+
+        // グローバル関数として公開（後方互換性のため）
+        window.handleFilterByToday = () => app.handleFilterByToday();
+        window.handleFilterByStatus = (status) => app.handleFilterByStatus(status);
+        window.handleShowAllContacts = () => app.handleShowAllContacts();
+        window.handleSortTable = (field) => app.handleSortTable(field);
+        // ✅ 追加: 一括操作関連のグローバル関数
+        window.handleRowSelection = (contactId, isChecked) => app.handleRowSelection(contactId, isChecked);
+        // ✅ 追加: ファイル操作関連のグローバル関数
+        window.downloadFile = (fileId) => app.downloadFile(fileId);
+        window.deleteFile = (fileId) => app.deleteFile(fileId);
+        // ✅ 追加: 履歴関連のグローバル関数
+        window.showFullNote = (historyId) => app.showFullNote(historyId);
+    </script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理画面ログイン</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-6">管理画面ログイン</h1>
+        
+        <form id="login-form" class="space-y-4">
+            <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert"></div>
+            <div id="loading-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert"></div>
+            
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">メールアドレス</label>
+                <input type="email" id="email" required value="takahashi@a-seek.jp"
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">パスワード</label>
+                <input type="password" id="password" required value="test"
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            
+            <div>
+                <button type="submit" id="login-button"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    ログイン
+                </button>
+            </div>
+        </form>
+        
+        <!-- デバッグ情報表示エリア -->
+        <div class="mt-6 p-4 bg-gray-50 rounded text-sm">
+            <h3 class="font-medium mb-2">接続状況:</h3>
+            <div id="connection-status">確認中...</div>
+            <div id="debug-info" class="mt-2 text-xs text-gray-500"></div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ 安全な初期化方法
+        window.addEventListener('load', function() {
+            console.log('ページ完全読み込み完了');
+            
+            // Supabaseライブラリが読み込まれているか確認
+            if (typeof window.supabase === 'undefined') {
+                console.error('❌ Supabaseライブラリが読み込まれていません');
+                updateConnectionStatus('❌ Supabaseライブラリ読み込みエラー', 'error');
+                return;
+            }
+            
+            console.log('✅ Supabaseライブラリ検出');
+            
+            // Supabaseクライアントを初期化
+            try {
+                const SUPABASE_URL = 'https://nbhjxajownbjlaqkarcm.supabase.co';
+                const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iaGp4YWpvd25iamxhcWthcmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NTU4MjIsImV4cCI6MjA2NDIzMTgyMn0.Wgo1xRaUD9v-xXtl6RvmjEDsJqn4osKnJkNonqoMqPY';
+                
+                // ✅ windowオブジェクトを使用して安全に初期化
+                window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                console.log('✅ Supabaseクライアント初期化成功');
+                updateDebugInfo('Supabaseクライアント初期化完了');
+                
+                // 初期化完了後に他の処理を実行
+                initializeApp();
+                
+            } catch (error) {
+                console.error('❌ Supabaseクライアント初期化エラー:', error);
+                updateConnectionStatus('❌ 初期化エラー: ' + error.message, 'error');
+            }
+        });
+        
+        // アプリケーションの初期化
+        async function initializeApp() {
+            console.log('アプリケーション初期化開始');
+            
+            // 接続状況を確認
+            await checkConnection();
+            
+            // 既存のセッションを確認
+            await checkExistingSession();
+            
+            // フォームの送信イベントを設定
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', handleLogin);
+                console.log('✅ ログインフォームイベント設定完了');
+            }
+        }
+        
+        // 接続状況を確認
+        async function checkConnection() {
+            try {
+                updateConnectionStatus('🔄 Supabase接続を確認中...', 'loading');
+                updateDebugInfo('接続テスト実行中...');
+                
+                // シンプルなクエリで接続を確認
+                const { data, error } = await window.supabaseClient
+                    .from('contacts')
+                    .select('count', { count: 'exact', head: true });
+                
+                if (error) {
+                    console.error('接続テストエラー:', error);
+                    throw error;
+                }
+                
+                console.log('✅ Supabase接続成功');
+                updateConnectionStatus('✅ Supabase接続成功', 'success');
+                updateDebugInfo('データベース接続: OK');
+                
+            } catch (error) {
+                console.error('❌ Supabase接続エラー:', error);
+                updateConnectionStatus(`❌ 接続エラー: ${error.message}`, 'error');
+                updateDebugInfo(`接続エラー詳細: ${error.message}`);
+            }
+        }
+        
+        // 既存セッション確認
+        async function checkExistingSession() {
+            try {
+                updateDebugInfo('セッション確認中...');
+                
+                const { data: { session }, error } = await window.supabaseClient.auth.getSession();
+                
+                if (error) {
+                    console.error('セッション確認エラー:', error);
+                    updateDebugInfo(`セッションエラー: ${error.message}`);
+                } else if (session) {
+                    console.log('既存セッションを検出:', session.user.email);
+                    updateConnectionStatus('✅ 既存セッション検出、リダイレクト中...', 'success');
+                    updateDebugInfo(`既存ユーザー: ${session.user.email}`);
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                    return;
+                } else {
+                    console.log('セッションなし、ログインが必要');
+                    updateConnectionStatus('✅ 接続成功、ログインしてください', 'success');
+                    updateDebugInfo('新規ログインが必要');
+                }
+            } catch (error) {
+                console.error('セッション確認で予期しないエラー:', error);
+                updateConnectionStatus('❌ セッション確認エラー', 'error');
+                updateDebugInfo(`予期しないエラー: ${error.message}`);
+            }
+        }
+        
+        // ログイン処理
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('error-message');
+            const loadingElement = document.getElementById('loading-message');
+            const loginButton = document.getElementById('login-button');
+            
+            console.log('ログイン処理開始:', { email });
+            
+            // UI状態をリセット
+            errorElement.classList.add('hidden');
+            loadingElement.classList.remove('hidden');
+            loadingElement.textContent = 'ログイン中...';
+            loginButton.disabled = true;
+            loginButton.textContent = 'ログイン中...';
+            
+            try {
+                updateConnectionStatus('🔄 認証中...', 'loading');
+                updateDebugInfo(`認証試行: ${email}`);
+                
+                const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) {
+                    console.error('ログインエラー詳細:', error);
+                    updateDebugInfo(`認証エラー: ${error.message}`);
+                    throw error;
+                }
+                
+                if (!data.session) {
+                    const errorMsg = 'セッションの作成に失敗しました';
+                    updateDebugInfo(errorMsg);
+                    throw new Error(errorMsg);
+                }
+                
+                console.log('✅ ログイン成功:', data.user.email);
+                updateConnectionStatus('✅ ログイン成功！リダイレクト中...', 'success');
+                updateDebugInfo(`ログイン成功: ${data.user.email}`);
+                loadingElement.textContent = 'ログイン成功！リダイレクト中...';
+                
+                // 短い遅延を入れてからリダイレクト
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                
+            } catch (error) {
+                console.error('ログインエラー:', error);
+                
+                // エラーメッセージを日本語化
+                let errorMessage = error.message;
+                if (error.message.includes('Invalid login credentials')) {
+                    errorMessage = 'メールアドレスまたはパスワードが正しくありません';
+                } else if (error.message.includes('Email not confirmed')) {
+                    errorMessage = 'メールアドレスが確認されていません';
+                } else if (error.message.includes('Network Error')) {
+                    errorMessage = 'ネットワークエラーが発生しました';
+                } else if (error.message.includes('User not found')) {
+                    errorMessage = 'ユーザーが見つかりません。新規登録が必要かもしれません。';
+                }
+                
+                errorElement.textContent = `ログインに失敗しました: ${errorMessage}`;
+                errorElement.classList.remove('hidden');
+                loadingElement.classList.add('hidden');
+                
+                updateConnectionStatus('❌ ログイン失敗', 'error');
+                updateDebugInfo(`失敗理由: ${errorMessage}`);
+                
+                // UI状態をリセット
+                loginButton.disabled = false;
+                loginButton.textContent = 'ログイン';
+            }
+        }
+        
+        // 接続状況表示を更新
+        function updateConnectionStatus(message, type = 'info') {
+            const statusElement = document.getElementById('connection-status');
+            if (!statusElement) return;
+            
+            const colors = {
+                loading: 'text-blue-600',
+                success: 'text-green-600',
+                error: 'text-red-600',
+                info: 'text-gray-600'
+            };
+            
+            statusElement.textContent = message;
+            statusElement.className = colors[type] || colors.info;
+        }
+        
+        // デバッグ情報を更新
+        function updateDebugInfo(message) {
+            const debugElement = document.getElementById('debug-info');
+            if (!debugElement) return;
+            
+            const timestamp = new Date().toLocaleTimeString('ja-JP');
+            debugElement.textContent = `[${timestamp}] ${message}`;
+        }
+    </script>
+</body>
+</html>

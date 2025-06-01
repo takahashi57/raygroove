@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通知システム - お問い合わせ管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 通知システム専用スタイル */
+        .notification-item {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .notification-item:hover {
+            background-color: #f8fafc;
+            border-left-color: #3b82f6;
+            transform: translateX(2px);
+        }
+        .notification-item.unread {
+            background-color: #eff6ff;
+            border-left-color: #2563eb;
+        }
+        .notification-item.priority-high {
+            border-left-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        .notification-item.priority-medium {
+            border-left-color: #f59e0b;
+            background-color: #fffbeb;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        
+        .notification-center {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .notification-toast {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .notification-toast.success {
+            border-left: 4px solid #10b981;
+        }
+        .notification-toast.warning {
+            border-left: 4px solid #f59e0b;
+        }
+        .notification-toast.error {
+            border-left: 4px solid #ef4444;
+        }
+        .notification-toast.info {
+            border-left: 4px solid #3b82f6;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .webhook-test {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .webhook-test:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+        }
+        
+        .realtime-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .realtime-indicator.connected {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        .realtime-indicator.disconnected {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+        .realtime-indicator.connecting {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .notification-settings-card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .notification-settings-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #3b82f6;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .priority-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+        }
+        .priority-option {
+            padding: 0.5rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .priority-option:hover {
+            border-color: #3b82f6;
+        }
+        .priority-option.selected {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .priority-option.high {
+            border-color: #dc2626;
+            color: #dc2626;
+        }
+        .priority-option.high.selected {
+            background-color: #fef2f2;
+        }
+        .priority-option.medium {
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+        .priority-option.medium.selected {
+            background-color: #fffbeb;
+        }
+        .priority-option.low {
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .priority-option.low.selected {
+            background-color: #f0fdf4;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- リアルタイム通知センター -->
+    <div id="notification-center" class="notification-center hidden">
+        <!-- 通知トーストがここに動的に追加される -->
+    </div>
+
+    <!-- エラー通知バナー -->
+    <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-2 text-center z-50">
+        <span id="error-message"></span>
+        <button onclick="hideErrorBanner()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div class="flex h-screen">
+        <!-- サイドバー -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">管理画面</h1>
+                <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
+            </div>
+            <nav class="mt-4">
+                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-inbox mr-3"></i> ダッシュボード
+                </a>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">システム管理</div>
+                <a href="../logs/access.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-chart-line mr-3"></i> アクセスログ
+                </a>
+                <a href="../logs/actions.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-clipboard-list mr-3"></i> 操作ログ
+                </a>
+                <a href="../backup/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-database mr-3"></i> バックアップ
+                </a>
+                <a href="../api/keys.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-key mr-3"></i> API管理
+                </a>
+                <a href="index.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
+                    <i class="fas fa-bell mr-3"></i> 通知システム
+                </a>
+                <a href="../help/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-question-circle mr-3"></i> ヘルプ
+                </a>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">設定</div>
+                <a href="../settings/general.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-cog mr-3"></i> 基本設定
+                </a>
+                <a href="../settings/email.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-envelope-open mr-3"></i> メール設定
+                </a>
+                <a href="../users/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-users mr-3"></i> ユーザー管理
+                </a>
+                <a href="#" id="logout-btn" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-sign-out-alt mr-3"></i> ログアウト
+                </a>
+            </nav>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            <i class="fas fa-bell text-indigo-600 mr-2"></i>通知システム
+                        </h2>
+                        <div class="realtime-indicator connected" id="realtime-status">
+                            <i class="fas fa-circle text-xs mr-2"></i>リアルタイム接続中
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="user-email" class="text-sm text-gray-600">読み込み中...</span>
+                        <div id="last-updated" class="text-xs text-gray-500"></div>
+                        <div class="relative">
+                            <button id="notification-bell" class="relative p-2 text-gray-600 hover:text-gray-800 focus:outline-none">
+                                <i class="fas fa-bell text-xl"></i>
+                                <span id="notification-count" class="notification-badge hidden">0</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <!-- 統計情報カード -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- 今日の通知数 -->
+                    <div class="notification-settings-card p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                <i class="fas fa-bell text-white text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">今日の通知</dt>
+                                    <dd class="text-2xl font-semibold text-gray-900" id="today-notifications">
+                                        <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 未読通知数 -->
+                    <div class="notification-settings-card p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
+                                <i class="fas fa-exclamation-triangle text-white text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">未読通知</dt>
+                                    <dd class="text-2xl font-semibold text-gray-900" id="unread-notifications">
+                                        <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- プッシュ通知状態 -->
+                    <div class="notification-settings-card p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                <i class="fas fa-mobile-alt text-white text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">プッシュ通知</dt>
+                                    <dd class="text-sm font-semibold" id="push-status">
+                                        <span class="text-yellow-600">設定中...</span>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Webhook状態 -->
+                    <div class="notification-settings-card p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                <i class="fas fa-link text-white text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Webhook</dt>
+                                    <dd class="text-sm font-semibold" id="webhook-status">
+                                        <span class="text-green-600">アクティブ</span>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- タブナビゲーション -->
+                <div class="bg-white shadow rounded-lg mb-6">
+                    <div class="border-b border-gray-200">
+                        <nav class="-mb-px flex space-x-8 px-6">
+                            <button id="tab-notifications" class="tab-button active py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-list mr-2"></i>通知一覧
+                            </button>
+                            <button id="tab-settings" class="tab-button py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-cog mr-2"></i>通知設定
+                            </button>
+                            <button id="tab-webhooks" class="tab-button py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-link mr-2"></i>Webhook管理
+                            </button>
+                            <button id="tab-templates" class="tab-button py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-file-alt mr-2"></i>テンプレート
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- 通知一覧タブ -->
+                    <div id="content-notifications" class="tab-content active p-6">
+                        <!-- 検索・フィルター -->
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+                            <div class="flex items-center space-x-4 mb-4 md:mb-0">
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-search text-gray-400"></i>
+                                    </div>
+                                    <input type="text" id="notification-search" 
+                                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
+                                           placeholder="通知を検索...">
+                                </div>
+                                <select id="notification-filter" class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">全ての通知</option>
+                                    <option value="unread">未読のみ</option>
+                                    <option value="high">重要</option>
+                                    <option value="today">今日</option>
+                                    <option value="week">今週</option>
+                                </select>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="mark-all-read" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors duration-200">
+                                    <i class="fas fa-check-double mr-2"></i>全て既読
+                                </button>
+                                <button id="test-notification" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors duration-200">
+                                    <i class="fas fa-flask mr-2"></i>テスト通知
+                                </button>
+                                <button id="refresh-notifications" class="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors duration-200">
+                                    <i class="fas fa-sync mr-2"></i>更新
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 通知リスト -->
+                        <div id="notifications-list" class="space-y-3">
+                            <!-- 通知アイテムがここに動的に追加される -->
+                        </div>
+
+                        <!-- ページネーション -->
+                        <div class="mt-6 flex items-center justify-between">
+                            <div class="text-sm text-gray-700">
+                                全 <span id="total-notifications">0</span> 件中
+                                <span id="start-notification">0</span> - <span id="end-notification">0</span> 件を表示
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="prev-notifications" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    前へ
+                                </button>
+                                <button id="next-notifications" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    次へ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 通知設定タブ -->
+                    <div id="content-settings" class="tab-content p-6">
+                        <div class="space-y-6">
+                            <!-- リアルタイム通知設定 -->
+                            <div class="notification-settings-card p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900">
+                                            <i class="fas fa-bolt text-yellow-500 mr-2"></i>リアルタイム通知
+                                        </h3>
+                                        <p class="text-sm text-gray-500">新しいお問い合わせや重要な変更を即座に通知します</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="realtime-enabled" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="flex items-center mb-2">
+                                            <input type="checkbox" id="notify-new-contact" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">新規お問い合わせ</span>
+                                        </label>
+                                        <label class="flex items-center mb-2">
+                                            <input type="checkbox" id="notify-status-change" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">ステータス変更</span>
+                                        </label>
+                                        <label class="flex items-center mb-2">
+                                            <input type="checkbox" id="notify-urgent" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">緊急対応が必要</span>
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center mb-2">
+                                            <input type="checkbox" id="notify-system-alert" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">システムアラート</span>
+                                        </label>
+                                        <label class="flex items-center mb-2">
+                                            <input type="checkbox" id="notify-backup-complete" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">バックアップ完了</span>
+                                        </label>
+                                        <label class="flex items-center mb-2">
+                                            <input type="checkbox" id="notify-api-limit" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">API制限警告</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ブラウザプッシュ通知設定 -->
+                            <div class="notification-settings-card p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900">
+                                            <i class="fas fa-mobile-alt text-blue-500 mr-2"></i>ブラウザプッシュ通知
+                                        </h3>
+                                        <p class="text-sm text-gray-500">ブラウザが閉じていても通知を受け取れます</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="push-enabled">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div id="push-permission-request" class="hidden bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+                                    <div class="flex">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <h3 class="text-sm font-medium text-yellow-800">プッシュ通知の許可が必要です</h3>
+                                            <div class="mt-2">
+                                                <button id="request-permission" class="text-sm bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-3 py-1 rounded-md">
+                                                    許可を求める
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">優先度設定</label>
+                                        <div class="priority-selector">
+                                            <div class="priority-option high selected" data-priority="high">
+                                                <i class="fas fa-exclamation-triangle mb-1"></i>
+                                                <div class="text-xs">緊急</div>
+                                            </div>
+                                            <div class="priority-option medium selected" data-priority="medium">
+                                                <i class="fas fa-exclamation-circle mb-1"></i>
+                                                <div class="text-xs">重要</div>
+                                            </div>
+                                            <div class="priority-option low" data-priority="low">
+                                                <i class="fas fa-info-circle mb-1"></i>
+                                                <div class="text-xs">通常</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">通知時間</label>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-sm text-gray-600">開始時刻</span>
+                                                <input type="time" id="push-start-time" value="09:00" class="text-sm border border-gray-300 rounded px-2 py-1">
+                                            </div>
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-sm text-gray-600">終了時刻</span>
+                                                <input type="time" id="push-end-time" value="18:00" class="text-sm border border-gray-300 rounded px-2 py-1">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">通知頻度</label>
+                                        <select id="push-frequency" class="block w-full text-sm border border-gray-300 rounded-md px-3 py-2">
+                                            <option value="immediate">即座</option>
+                                            <option value="5min">5分間隔</option>
+                                            <option value="15min">15分間隔</option>
+                                            <option value="30min">30分間隔</option>
+                                            <option value="1hour">1時間間隔</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 音声通知設定 -->
+                            <div class="notification-settings-card p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900">
+                                            <i class="fas fa-volume-up text-green-500 mr-2"></i>音声通知
+                                        </h3>
+                                        <p class="text-sm text-gray-500">重要な通知を音声でお知らせします</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="sound-enabled">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">通知音</label>
+                                        <select id="notification-sound" class="block w-full text-sm border border-gray-300 rounded-md px-3 py-2">
+                                            <option value="default">デフォルト</option>
+                                            <option value="chime">チャイム</option>
+                                            <option value="bell">ベル</option>
+                                            <option value="alert">アラート</option>
+                                            <option value="custom">カスタム</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">音量</label>
+                                        <div class="flex items-center space-x-3">
+                                            <i class="fas fa-volume-down text-gray-400"></i>
+                                            <input type="range" id="sound-volume" min="0" max="100" value="70" class="flex-1">
+                                            <i class="fas fa-volume-up text-gray-400"></i>
+                                            <span id="volume-display" class="text-sm text-gray-600 w-8">70%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4 flex space-x-2">
+                                    <button id="test-sound" class="px-3 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">
+                                        <i class="fas fa-play mr-2"></i>テスト再生
+                                    </button>
+                                    <button id="upload-sound" class="px-3 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700">
+                                        <i class="fas fa-upload mr-2"></i>カスタム音声
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 設定保存ボタン -->
+                            <div class="flex justify-end space-x-3">
+                                <button id="reset-settings" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                    <i class="fas fa-undo mr-2"></i>リセット
+                                </button>
+                                <button id="save-settings" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                                    <i class="fas fa-save mr-2"></i>設定を保存
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Webhook管理タブ -->
+                    <div id="content-webhooks" class="tab-content p-6">
+                        <div class="space-y-6">
+                            <!-- Webhook追加フォーム -->
+                            <div class="notification-settings-card p-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">
+                                    <i class="fas fa-plus text-indigo-600 mr-2"></i>新しいWebhook
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">名前</label>
+                                        <input type="text" id="webhook-name" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="Slack通知など">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">URL</label>
+                                        <input type="url" id="webhook-url" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="https://hooks.slack.com/...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">HTTPメソッド</label>
+                                        <select id="webhook-method" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                            <option value="POST">POST</option>
+                                            <option value="PUT">PUT</option>
+                                            <option value="PATCH">PATCH</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Content-Type</label>
+                                        <select id="webhook-content-type" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                            <option value="application/json">application/json</option>
+                                            <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">通知イベント</label>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="webhook-new-contact" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">新規お問い合わせ</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="webhook-status-change" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">ステータス変更</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="webhook-system-alert" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">システムアラート</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="webhook-backup-complete" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-2">
+                                            <span class="text-sm text-gray-700">バックアップ完了</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">カスタムヘッダー（JSON形式）</label>
+                                    <textarea id="webhook-headers" rows="3" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder='{"Authorization": "Bearer your-token", "X-API-Key": "your-key"}'></textarea>
+                                </div>
+
+                                <div class="mt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ペイロードテンプレート（JSON形式）</label>
+                                    <textarea id="webhook-payload" rows="5" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono" placeholder='{"text": "{{message}}", "username": "お問い合わせBot", "channel": "#general"}'></textarea>
+                                    <p class="text-xs text-gray-500 mt-1">使用可能な変数: {{name}}, {{email}}, {{message}}, {{status}}, {{timestamp}}</p>
+                                </div>
+
+                                <div class="mt-6 flex space-x-3">
+                                    <button id="test-webhook" class="webhook-test px-4 py-2 rounded-md text-sm font-medium">
+                                        <i class="fas fa-flask mr-2"></i>Webhookをテスト
+                                    </button>
+                                    <button id="add-webhook" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700">
+                                        <i class="fas fa-plus mr-2"></i>Webhookを追加
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 既存Webhook一覧 -->
+                            <div class="notification-settings-card p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-lg font-medium text-gray-900">
+                                        <i class="fas fa-list text-purple-600 mr-2"></i>登録済みWebhook
+                                    </h3>
+                                    <button id="refresh-webhooks" class="px-3 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700">
+                                        <i class="fas fa-sync mr-2"></i>更新
+                                    </button>
+                                </div>
+                                
+                                <div id="webhooks-list" class="space-y-3">
+                                    <!-- Webhookアイテムがここに動的に追加される -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- テンプレート管理タブ -->
+                    <div id="content-templates" class="tab-content p-6">
+                        <div class="space-y-6">
+                            <!-- 通知テンプレート編集 -->
+                            <div class="notification-settings-card p-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">
+                                    <i class="fas fa-file-alt text-orange-600 mr-2"></i>通知テンプレート
+                                </h3>
+                                
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <!-- テンプレート選択 -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">テンプレート選択</label>
+                                        <select id="template-selector" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm mb-4">
+                                            <option value="new_contact">新規お問い合わせ</option>
+                                            <option value="status_change">ステータス変更</option>
+                                            <option value="system_alert">システムアラート</option>
+                                            <option value="backup_complete">バックアップ完了</option>
+                                            <option value="api_limit">API制限警告</option>
+                                        </select>
+                                        
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">タイトル</label>
+                                                <input type="text" id="template-title" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                            </div>
+                                            
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">メッセージ</label>
+                                                <textarea id="template-message" rows="4" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></textarea>
+                                            </div>
+                                            
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">優先度</label>
+                                                <select id="template-priority" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                                    <option value="low">低</option>
+                                                    <option value="medium">中</option>
+                                                    <option value="high">高</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- プレビュー -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">プレビュー</label>
+                                        <div class="border border-gray-300 rounded-md p-4 bg-gray-50 min-h-[200px]">
+                                            <div id="template-preview" class="notification-item p-3 bg-white rounded-md">
+                                                <div class="flex items-start">
+                                                    <div class="flex-shrink-0">
+                                                        <i id="preview-icon" class="fas fa-bell text-blue-500 text-lg"></i>
+                                                    </div>
+                                                    <div class="ml-3 flex-1">
+                                                        <h4 id="preview-title" class="text-sm font-medium text-gray-900">プレビュータイトル</h4>
+                                                        <p id="preview-message" class="text-sm text-gray-600 mt-1">プレビューメッセージ</p>
+                                                        <div class="flex items-center mt-2 text-xs text-gray-500">
+                                                            <i class="fas fa-clock mr-1"></i>
+                                                            <span>2025/01/15 10:30</span>
+                                                            <span id="preview-priority" class="ml-2 px-2 py-1 rounded-full bg-blue-100 text-blue-800">通常</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-4">
+                                            <h4 class="text-sm font-medium text-gray-700 mb-2">利用可能な変数</h4>
+                                            <div class="bg-gray-50 p-3 rounded-md text-sm text-gray-600">
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <div><code class="bg-gray-200 px-1 rounded">{{name}}</code> - お名前</div>
+                                                    <div><code class="bg-gray-200 px-1 rounded">{{email}}</code> - メールアドレス</div>
+                                                    <div><code class="bg-gray-200 px-1 rounded">{{status}}</code> - ステータス</div>
+                                                    <div><code class="bg-gray-200 px-1 rounded">{{timestamp}}</code> - 日時</div>
+                                                    <div><code class="bg-gray-200 px-1 rounded">{{message}}</code> - メッセージ</div>
+                                                    <div><code class="bg-gray-200 px-1 rounded">{{url}}</code> - 詳細URL</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-6 flex justify-end space-x-3">
+                                    <button id="reset-template" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                        <i class="fas fa-undo mr-2"></i>リセット
+                                    </button>
+                                    <button id="test-template" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">
+                                        <i class="fas fa-eye mr-2"></i>テスト表示
+                                    </button>
+                                    <button id="save-template" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700">
+                                        <i class="fas fa-save mr-2"></i>テンプレート保存
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    // 902行目の前後10行程度を確認
+    console.log("Line 841-9 around the error");
+    <script>
+        // 通知システム管理クラス
+        class NotificationSystemApp {
+            constructor() {
+                this.supabaseClient = null;
+                this.currentUser = null;
+                this.notifications = [];
+                this.webhooks = [];
+                this.currentPage = 1;
+                this.itemsPerPage = 10;
+                this.totalItems = 0;
+                this.currentTab = 'notifications';
+                this.templates = {
+                    new_contact: {
+                        title: '新しいお問い合わせが届きました',
+                        message: '{{name}}様からお問い合わせがありました: {{message}}',
+                        priority: 'high',
+                        icon: 'fas fa-envelope'
+                    },
+                    status_change: {
+                        title: 'ステータスが更新されました',
+                        message: '{{name}}様のお問い合わせのステータスが{{status}}に変更されました',
+                        priority: 'medium',
+                        icon: 'fas fa-sync-alt'
+                    },
+                    reply_received: {
+                        title: '返信がありました',
+                        message: '{{name}}様からの返信: {{message}}',
+                        priority: 'high',
+                        icon: 'fas fa-reply'
+                    },
+                    system_alert: {
+                        title: 'システムアラート',
+                        message: '{{message}}',
+                        priority: 'critical',
+                        icon: 'fas fa-exclamation-triangle'
+                    }
+                };
+                this.realtimeSubscription = null;
+                this.notificationPermission = 'default';
+                this.serviceWorker = null;
+                
+                // プッシュ通知権限要求
+                this.requestNotificationPermission = async () => {
+                try {
+                    const permission = await Notification.requestPermission();
+                    this.notificationPermission = permission;
+                    this.updatePushNotificationStatus();
+                    
+                    if (permission === 'granted') {
+                        document.getElementById('push-enabled').checked = true;
+                        this.showSuccess('プッシュ通知が有効になりました');
+                    } else {
+                        this.showError('プッシュ通知の許可が拒否されました');
+                    }
+                } catch (error) {
+                    console.error('通知許可要求エラー:', error);
+                    this.showError('通知許可の要求に失敗しました');
+                }
+            }
+        }
+         // ✅✅✅ ここに新しいメソッドを追加 ✅✅✅
+    async initialize() {
+        try {
+            console.log('通知システム初期化開始...');
+            
+            // 通知権限確認
+            if ('Notification' in window) {
+                this.notificationPermission = Notification.permission;
+                this.updatePushNotificationStatus();
+            }
+            
+            console.log('✅ 通知システム初期化完了');
+            
+        } catch (error) {
+            console.error('❌ 初期化エラー:', error);
+        }
+    }
+
+    showError(message) {
+        console.error(message);
+    }
+    // ✅✅✅ ここまで追加 ✅✅✅
+    
+            // プッシュ通知状態更新
+            updatePushNotificationStatus() {
+                const statusElement = document.getElementById('push-status');
+                const permissionElement = document.getElementById('push-permission-request');
+                
+                switch (this.notificationPermission) {
+                    case 'granted':
+                        statusElement.innerHTML = '<span class="text-green-600">有効</span>';
+                        permissionElement.classList.add('hidden');
+                        break;
+                    case 'denied':
+                        statusElement.innerHTML = '<span class="text-red-600">拒否済み</span>';
+                        permissionElement.classList.add('hidden');
+                        break;
+                    default:
+                        statusElement.innerHTML = '<span class="text-yellow-600">未設定</span>';
+                        permissionElement.classList.remove('hidden');
+                        break;
+                }
+            }
+
+            // 新しいお問い合わせの処理
+            handleNewContact(contact) {
+                const notification = {
+                    id: Date.now(),
+                    type: 'new_contact',
+                    title: '新しいお問い合わせ',
+                    message: `${contact.name}様からお問い合わせがありました`,
+                    priority: 'high',
+                    timestamp: new Date(),
+                    data: contact,
+                    read: false
+                };
+
+                this.addNotification(notification);
+                this.showToastNotification(notification);
+                this.sendPushNotification(notification);
+            }
+
+            // お問い合わせ更新の処理
+            handleContactUpdate(newContact, oldContact) {
+                if (newContact.status !== oldContact.status) {
+                    const notification = {
+                        id: Date.now(),
+                        type: 'status_change',
+                        title: 'ステータス更新',
+                        message: `${newContact.name}様のステータスが${this.getStatusLabel(newContact.status)}に変更されました`,
+                        priority: 'medium',
+                        timestamp: new Date(),
+                        data: newContact,
+                        read: false
+                    };
+
+                    this.addNotification(notification);
+                    this.showToastNotification(notification);
+                }
+            }
+
+            // 通知を追加
+            addNotification(notification) {
+                // サンプルデータに追加（実際の実装ではDBに保存）
+                this.notifications.unshift(notification);
+                this.updateNotificationBadge();
+                this.renderNotifications();
+            }
+
+            // トースト通知表示
+            showToastNotification(notification) {
+                const toastHtml = `
+                    <div class="notification-toast ${notification.priority}" data-id="${notification.id}">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="${this.getNotificationIcon(notification.type)} text-lg"></i>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <p class="text-sm font-medium text-gray-900">${notification.title}</p>
+                                <p class="text-sm text-gray-500 mt-1">${notification.message}</p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0">
+                                <button onclick="app.closeToast('${notification.id}')" class="text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const notificationCenter = document.getElementById('notification-center');
+                notificationCenter.classList.remove('hidden');
+                notificationCenter.insertAdjacentHTML('beforeend', toastHtml);
+
+                // 5秒後に自動で閉じる
+                setTimeout(() => {
+                    this.closeToast(notification.id);
+                }, 5000);
+
+                // 音声通知
+                if (document.getElementById('sound-enabled').checked) {
+                    this.playNotificationSound();
+                }
+            }
+
+            // プッシュ通知送信
+            async sendPushNotification(notification) {
+                if (this.notificationPermission !== 'granted' || !document.getElementById('push-enabled').checked) {
+                    return;
+                }
+
+                try {
+                    new Notification(notification.title, {
+                        body: notification.message,
+                        icon: '/favicon.ico',
+                        badge: '/badge.png',
+                        tag: notification.type,
+                        requireInteraction: notification.priority === 'high'
+                    });
+                } catch (error) {
+                    console.error('プッシュ通知送信エラー:', error);
+                }
+            }
+
+            // 通知音再生
+            playNotificationSound() {
+                try {
+                    const soundType = document.getElementById('notification-sound').value;
+                    const volume = document.getElementById('sound-volume').value / 100;
+                    
+                    let audio;
+                    switch (soundType) {
+                        case 'chime':
+                            audio = new Audio('/sounds/chime.mp3');
+                            break;
+                        case 'bell':
+                            audio = new Audio('/sounds/bell.mp3');
+                            break;
+                        case 'alert':
+                            audio = new Audio('/sounds/alert.mp3');
+                            break;
+                        default:
+                            // デフォルトの通知音
+                            audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAcBSaU3fLLeSsFJ3vK+a6Uh0ASEJ7r2pmFQAgXca4=');
+                            break;
+                    }
+                    
+                    audio.volume = volume;
+                    audio.play();
+                } catch (error) {
+                    console.error('通知音再生エラー:', error);
+                }
+            }
+
+            // 通知一覧を読み込み
+            async loadNotifications() {
+                try {
+                    // 実際の実装ではSupabaseから取得
+                    // const { data, error } = await this.supabaseClient
+                    //     .from('notifications')
+                    //     .select('*')
+                    //     .order('created_at', { ascending: false });
+                    
+                    // サンプルデータ生成（開発用）
+                    this.generateSampleNotifications();
+                    this.renderNotifications();
+                    this.updateNotificationBadge();
+                } catch (error) {
+                    console.error('通知読み込みエラー:', error);
+                    this.showError('通知の読み込みに失敗しました');
+                }
+            }
+
+            // サンプル通知データ生成
+            generateSampleNotifications() {
+                const now = new Date();
+                this.notifications = [
+                    {
+                        id: 1,
+                        type: 'new_contact',
+                        title: '新しいお問い合わせ',
+                        message: '田中様からサービスについてのお問い合わせがありました',
+                        priority: 'high',
+                        timestamp: new Date(now - 5 * 60 * 1000),
+                        read: false
+                    },
+                    {
+                        id: 2,
+                        type: 'status_change',
+                        title: 'ステータス更新',
+                        message: '佐藤様のお問い合わせが対応中に変更されました',
+                        priority: 'medium',
+                        timestamp: new Date(now - 30 * 60 * 1000),
+                        read: false
+                    },
+                    {
+                        id: 3,
+                        type: 'system_alert',
+                        title: 'システムアラート',
+                        message: 'APIレート制限に近づいています（85%使用中）',
+                        priority: 'medium',
+                        timestamp: new Date(now - 60 * 60 * 1000),
+                        read: true
+                    },
+                    {
+                        id: 4,
+                        type: 'backup_complete',
+                        title: 'バックアップ完了',
+                        message: '定期バックアップが正常に完了しました',
+                        priority: 'low',
+                        timestamp: new Date(now - 2 * 60 * 60 * 1000),
+                        read: true
+                    },
+                    {
+                        id: 5,
+                        type: 'new_contact',
+                        title: '新しいお問い合わせ',
+                        message: '山田様から技術サポートの依頼がありました',
+                        priority: 'high',
+                        timestamp: new Date(now - 3 * 60 * 60 * 1000),
+                        read: true
+                    }
+                ];
+            }
+
+            // 通知一覧を表示
+            renderNotifications() {
+                const container = document.getElementById('notifications-list');
+                const filteredNotifications = this.getFilteredNotifications();
+                
+                if (filteredNotifications.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-bell-slash text-4xl mb-4"></i>
+                            <p>該当する通知はありません</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = filteredNotifications.map(notification => `
+                    <div class="notification-item ${notification.read ? '' : 'unread'} ${notification.priority === 'high' ? 'priority-high' : notification.priority === 'medium' ? 'priority-medium' : ''} p-4 bg-white rounded-lg border" data-id="${notification.id}">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="${this.getNotificationIcon(notification.type)} text-lg ${this.getNotificationColor(notification.priority)}"></i>
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-medium text-gray-900">${notification.title}</h4>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-xs text-gray-500">${this.formatTimeAgo(notification.timestamp)}</span>
+                                        ${!notification.read ? '<span class="w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1">${notification.message}</p>
+                                <div class="flex items-center justify-between mt-3">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full ${this.getPriorityClass(notification.priority)}">
+                                            ${this.getPriorityLabel(notification.priority)}
+                                        </span>
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                            ${this.getTypeLabel(notification.type)}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        ${!notification.read ? `<button onclick="app.markAsRead(${notification.id})" class="text-xs text-indigo-600 hover:text-indigo-800">既読にする</button>` : ''}
+                                        <button onclick="app.deleteNotification(${notification.id})" class="text-xs text-red-600 hover:text-red-800">削除</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 通知フィルタリング
+            getFilteredNotifications() {
+                let filtered = [...this.notifications];
+                
+                const searchTerm = document.getElementById('notification-search').value.toLowerCase();
+                const filterType = document.getElementById('notification-filter').value;
+
+                if (searchTerm) {
+                    filtered = filtered.filter(n => 
+                        n.title.toLowerCase().includes(searchTerm) ||
+                        n.message.toLowerCase().includes(searchTerm)
+                    );
+                }
+
+                if (filterType) {
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+                    switch (filterType) {
+                        case 'unread':
+                            filtered = filtered.filter(n => !n.read);
+                            break;
+                        case 'high':
+                            filtered = filtered.filter(n => n.priority === 'high');
+                            break;
+                        case 'today':
+                            filtered = filtered.filter(n => n.timestamp >= today);
+                            break;
+                        case 'week':
+                            filtered = filtered.filter(n => n.timestamp >= weekAgo);
+                            break;
+                    }
+                }
+
+                return filtered;
+            }
+
+            // 通知統計を読み込み
+            async loadNotificationStats() {
+                try {
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    
+                    const todayNotifications = this.notifications.filter(n => n.timestamp >= today).length;
+                    const unreadNotifications = this.notifications.filter(n => !n.read).length;
+
+                    document.getElementById('today-notifications').textContent = todayNotifications;
+                    document.getElementById('unread-notifications').textContent = unreadNotifications;
+                } catch (error) {
+                    console.error('通知統計読み込みエラー:', error);
+                }
+            }
+
+            // Webhookを読み込み
+            async loadWebhooks() {
+                try {
+                    // 実際の実装ではSupabaseから取得
+                    // const { data, error } = await this.supabaseClient
+                    //     .from('webhooks')
+                    //     .select('*')
+                    //     .order('created_at', { ascending: false });
+                    
+                    // サンプルデータ生成（開発用）
+                    this.generateSampleWebhooks();
+                    this.renderWebhooks();
+                } catch (error) {
+                    console.error('Webhook読み込みエラー:', error);
+                    this.showError('Webhookの読み込みに失敗しました');
+                }
+            }
+
+            // サンプルWebhookデータ生成
+            generateSampleWebhooks() {
+                this.webhooks = [
+                    {
+                        id: 1,
+                        name: 'Slack通知',
+                        url: 'https://hooks.slack.com/services/...',
+                        method: 'POST',
+                        events: ['new_contact', 'system_alert'],
+                        status: 'active',
+                        lastUsed: new Date(Date.now() - 30 * 60 * 1000),
+                        successCount: 245,
+                        errorCount: 2
+                    },
+                    {
+                        id: 2,
+                        name: 'Teams通知',
+                        url: 'https://outlook.office.com/webhook/...',
+                        method: 'POST',
+                        events: ['new_contact', 'status_change'],
+                        status: 'active',
+                        lastUsed: new Date(Date.now() - 60 * 60 * 1000),
+                        successCount: 189,
+                        errorCount: 0
+                    },
+                    {
+                        id: 3,
+                        name: 'Discord通知',
+                        url: 'https://discord.com/api/webhooks/...',
+                        method: 'POST',
+                        events: ['system_alert'],
+                        status: 'inactive',
+                        lastUsed: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                        successCount: 67,
+                        errorCount: 1
+                    }
+                ];
+            }
+
+            // Webhook一覧を表示
+            renderWebhooks() {
+                const container = document.getElementById('webhooks-list');
+                
+                if (this.webhooks.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-link text-4xl mb-4"></i>
+                            <p>登録されたWebhookはありません</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = this.webhooks.map(webhook => `
+                    <div class="border border-gray-200 rounded-lg p-4 ${webhook.status === 'active' ? 'bg-green-50' : 'bg-gray-50'}">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-3">
+                                <h4 class="text-sm font-medium text-gray-900">${webhook.name}</h4>
+                                <span class="px-2 py-1 text-xs font-medium rounded-full ${webhook.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                    ${webhook.status === 'active' ? 'アクティブ' : '無効'}
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="app.toggleWebhook(${webhook.id})" class="text-sm ${webhook.status === 'active' ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}">
+                                    ${webhook.status === 'active' ? '無効化' : '有効化'}
+                                </button>
+                                <button onclick="app.editWebhook(${webhook.id})" class="text-sm text-indigo-600 hover:text-indigo-800">編集</button>
+                                <button onclick="app.deleteWebhook(${webhook.id})" class="text-sm text-red-600 hover:text-red-800">削除</button>
+                            </div>
+                        </div>
+                        
+                        <div class="text-sm text-gray-600 mb-2">
+                            <span class="font-medium">URL:</span> ${webhook.url}
+                        </div>
+                        
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <div class="flex items-center space-x-4">
+                                <span>イベント: ${webhook.events.length}個</span>
+                                <span>成功: ${webhook.successCount}回</span>
+                                <span>エラー: ${webhook.errorCount}回</span>
+                            </div>
+                            <span>最終使用: ${this.formatTimeAgo(webhook.lastUsed)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 全て既読にする
+            async markAllAsRead() {
+                try {
+                    this.notifications.forEach(n => n.read = true);
+                    this.renderNotifications();
+                    this.updateNotificationBadge();
+                    this.showSuccess('全ての通知を既読にしました');
+                } catch (error) {
+                    console.error('一括既読エラー:', error);
+                    this.showError('既読処理に失敗しました');
+                }
+            }
+
+            // 個別既読
+            async markAsRead(id) {
+                try {
+                    const notification = this.notifications.find(n => n.id === id);
+                    if (notification) {
+                        notification.read = true;
+                        this.renderNotifications();
+                        this.updateNotificationBadge();
+                    }
+                } catch (error) {
+                    console.error('既読処理エラー:', error);
+                }
+            }
+
+            // 通知削除
+            async deleteNotification(id) {
+                try {
+                    if (confirm('この通知を削除しますか？')) {
+                        this.notifications = this.notifications.filter(n => n.id !== id);
+                        this.renderNotifications();
+                        this.updateNotificationBadge();
+                    }
+                } catch (error) {
+                    console.error('通知削除エラー:', error);
+                }
+            }
+
+            // 通知バッジ更新
+            updateNotificationBadge() {
+                const unreadCount = this.notifications.filter(n => !n.read).length;
+                const badge = document.getElementById('notification-count');
+                
+                if (unreadCount > 0) {
+                    badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            // テスト通知
+            testNotification() {
+                const notification = {
+                    id: Date.now(),
+                    type: 'system_alert',
+                    title: 'テスト通知',
+                    message: 'これはテスト用の通知です',
+                    priority: 'medium',
+                    timestamp: new Date(),
+                    read: false
+                };
+
+                this.addNotification(notification);
+                this.showToastNotification(notification);
+                this.sendPushNotification(notification);
+            }
+
+            // トースト通知を閉じる
+            closeToast(id) {
+                const toast = document.querySelector(`[data-id="${id}"]`);
+                if (toast) {
+                    toast.remove();
+                    
+                    // 全てのトーストが閉じられた場合、通知センターを非表示
+                    const notificationCenter = document.getElementById('notification-center');
+                    if (notificationCenter.children.length === 0) {
+                        notificationCenter.classList.add('hidden');
+                    }
+                }
+            }
+
+            // テンプレート読み込み
+            loadTemplate(type) {
+                const template = this.templates[type];
+                if (template) {
+                    document.getElementById('template-title').value = template.title;
+                    document.getElementById('template-message').value = template.message;
+                    document.getElementById('template-priority').value = template.priority;
+                    this.updateTemplatePreview();
+                }
+            }
+
+            // テンプレートプレビュー更新
+            updateTemplatePreview() {
+                const title = document.getElementById('template-title').value || 'プレビュータイトル';
+                const message = document.getElementById('template-message').value || 'プレビューメッセージ';
+                const priority = document.getElementById('template-priority').value || 'medium';
+                
+                document.getElementById('preview-title').textContent = title;
+                document.getElementById('preview-message').textContent = message;
+                document.getElementById('preview-priority').textContent = this.getPriorityLabel(priority);
+                document.getElementById('preview-priority').className = `ml-2 px-2 py-1 rounded-full ${this.getPriorityClass(priority)}`;
+                
+                const icon = document.getElementById('preview-icon');
+                icon.className = `fas fa-bell ${this.getNotificationColor(priority)} text-lg`;
+            }
+
+            // ヘルパー関数
+            getNotificationIcon(type) {
+                const icons = {
+                    new_contact: 'fas fa-envelope',
+                    status_change: 'fas fa-sync',
+                    system_alert: 'fas fa-exclamation-triangle',
+                    backup_complete: 'fas fa-check-circle',
+                    api_limit: 'fas fa-exclamation-circle'
+                };
+                return icons[type] || 'fas fa-bell';
+            }
+
+            getNotificationColor(priority) {
+                const colors = {
+                    high: 'text-red-500',
+                    medium: 'text-yellow-500',
+                    low: 'text-blue-500'
+                };
+                return colors[priority] || 'text-gray-500';
+            }
+
+            getPriorityClass(priority) {
+                const classes = {
+                    high: 'bg-red-100 text-red-800',
+                    medium: 'bg-yellow-100 text-yellow-800',
+                    low: 'bg-blue-100 text-blue-800'
+                };
+                return classes[priority] || 'bg-gray-100 text-gray-800';
+            }
+
+            getPriorityLabel(priority) {
+                const labels = {
+                    high: '緊急',
+                    medium: '重要',
+                    low: '通常'
+                };
+                return labels[priority] || '通常';
+            }
+
+            getTypeLabel(type) {
+                const labels = {
+                    new_contact: '新規お問い合わせ',
+                    status_change: 'ステータス変更',
+                    system_alert: 'システムアラート',
+                    backup_complete: 'バックアップ',
+                    api_limit: 'API制限'
+                };
+                return labels[type] || type;
+            }
+
+            getStatusLabel(status) {
+                const labels = {
+                    pending: '未対応',
+                    in_progress: '対応中',
+                    completed: '対応済み'
+                };
+                return labels[status] || status;
+            }
+
+            formatTimeAgo(date) {
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+
+                if (diffMins < 1) return 'たった今';
+                if (diffMins < 60) return `${diffMins}分前`;
+                if (diffHours < 24) return `${diffHours}時間前`;
+                if (diffDays < 7) return `${diffDays}日前`;
+                return date.toLocaleDateString('ja-JP');
+            }
+
+            // エラー・成功メッセージ表示
+            showError(message) {
+                document.getElementById('error-message').textContent = message;
+                document.getElementById('error-banner').classList.remove('hidden');
+            }
+
+            showSuccess(message) {
+                // 成功通知のトースト表示
+                const toast = {
+                    id: Date.now(),
+                    title: '成功',
+                    message: message,
+                    priority: 'success'
+                };
+                this.showToastNotification(toast);
+            }
+
+            // ログアウト処理
+            async handleLogout() {
+                try {
+                    if (this.realtimeSubscription) {
+                        this.realtimeSubscription.unsubscribe();
+                    }
+                    const { error } = await this.supabaseClient.auth.signOut();
+                    if (error) throw error;
+                    window.location.href = '../login.html';
+                } catch (error) {
+                    console.error('ログアウトエラー:', error);
+                    this.showError('ログアウト中にエラーが発生しました');
+                }
+            }
+        }
+
+        // アプリケーション初期化
+        const app = new NotificationSystemApp();
+        window.addEventListener('load', () => {
+            app.initialize();
+        });
+
+        // グローバル関数
+        window.hideErrorBanner = () => {
+            document.getElementById('error-banner').classList.add('hidden');
+        };
+
+        window.app = app;
+    </script>
+  </body>
+</html>

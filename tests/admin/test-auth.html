@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理画面 認証テスト</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <!-- 1. Supabaseクライアントライブラリを読み込み -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- 2. 初期化スクリプトをインラインで記述 -->
+    <script>
+        // Supabaseの設定
+        const SUPABASE_URL = 'https://nbhjxajownbjlaqkarcm.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iaGp4YWpvd25iamxhcWthcmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NTU4MjIsImV4cCI6MjA2NDIzMTgyMn0.Wgo1xRaUD9v-xXtl6RvmjEDsJqn4osKnJkNonqoMqPY';
+        
+        // デバッグ用ログ
+        console.log('Initializing Supabase client...');
+        console.log('URL:', SUPABASE_URL);
+        
+        try {
+            // Supabaseクライアントを初期化
+            const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: {
+                    autoRefreshToken: true,
+                    persistSession: true,
+                    detectSessionInUrl: true
+                }
+            });
+            
+            // グローバルに設定
+            window.supabaseClient = supabaseClient;
+            console.log('Supabase client initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize Supabase client:', error);
+        }
+    </script>
+    
+    <!-- 3. テストスクリプトを読み込み -->
+    <script src="test-auth.js"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">管理画面 認証テスト</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">テストケース 1: ログイン機能</h2>
+            <div id="test1" class="p-4 border rounded mb-4">
+                <div class="font-medium mb-2">テスト中...</div>
+                <div id="test1-result" class="text-sm"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">テストケース 2: セッション管理</h2>
+            <div id="test2" class="p-4 border rounded mb-4">
+                <div class="font-medium mb-2">テスト中...</div>
+                <div id="test2-result" class="text-sm"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">テスト結果サマリー</h2>
+            <div id="test-summary" class="p-4 border rounded">
+                <div class="flex items-center mb-2">
+                    <div class="w-4 h-4 rounded-full bg-gray-300 mr-2" id="test-status"></div>
+                    <span id="test-summary-text">テストを実行中...</span>
+                </div>
+                <div id="test-details" class="text-sm mt-2"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

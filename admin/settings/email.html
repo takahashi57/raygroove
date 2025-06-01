@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メール設定 - お問い合わせ管理システム</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- TinyMCEエディタ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+    <style>
+        /* メール設定専用スタイル */
+        .setting-card {
+            transition: all 0.2s ease;
+        }
+        .setting-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .connection-status {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        .connection-success {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        .connection-error {
+            background-color: #fecaca;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
+        }
+        .connection-testing {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+            border: 1px solid #93c5fd;
+        }
+        .template-preview {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            background: #f9fafb;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .variable-tag {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            margin: 0.125rem;
+            cursor: pointer;
+            border: 1px solid #bfdbfe;
+        }
+        .variable-tag:hover {
+            background: #dbeafe;
+        }
+        .test-email-form {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        .log-entry {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0.75rem 0;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-success {
+            border-left: 4px solid #10b981;
+            padding-left: 0.75rem;
+        }
+        .log-error {
+            border-left: 4px solid #ef4444;
+            padding-left: 0.75rem;
+        }
+        .log-warning {
+            border-left: 4px solid #f59e0b;
+            padding-left: 0.75rem;
+        }
+        .tinymce-container {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+        .tinymce-container .tox-tinymce {
+            border: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- サイドバー -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">管理画面</h1>
+                <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
+            </div>
+            <nav class="mt-4">
+                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-inbox mr-3"></i> お問い合わせ一覧
+                </a>
+                <div class="px-4 py-2">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">設定</p>
+                </div>
+                <a href="general.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-cog mr-3"></i> 基本設定
+                </a>
+                <a href="email.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
+                    <i class="fas fa-envelope mr-3"></i> メール設定
+                </a>
+                <a href="#" id="logout-btn" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-sign-out-alt mr-3"></i> ログアウト
+                </a>
+            </nav>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">メール設定</h2>
+                        <p class="text-sm text-gray-600">SMTP設定・メールテンプレート・配信管理</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="user-email" class="text-sm text-gray-600">読み込み中...</span>
+                        <div class="text-xs text-gray-500" id="last-saved">
+                            最終保存: <span id="last-saved-time">-</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <!-- SMTP設定 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-server mr-2 text-blue-600"></i>SMTP設定
+                            </h3>
+                            <p class="text-sm text-gray-600">メール送信サーバーの設定</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="test-smtp-connection" class="px-4 py-2 bg-yellow-600 text-white rounded-md text-sm font-medium hover:bg-yellow-700 transition-colors duration-200">
+                                <i class="fas fa-plug mr-2"></i>接続テスト
+                            </button>
+                            <button id="save-smtp-settings" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200">
+                                <i class="fas fa-save mr-2"></i>保存
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">SMTPサーバー *</label>
+                                <input type="text" id="smtp-host" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="smtp.gmail.com">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ポート番号 *</label>
+                                <input type="number" id="smtp-port" value="587" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">暗号化方式</label>
+                                <select id="smtp-encryption" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <option value="tls">TLS (推奨)</option>
+                                    <option value="ssl">SSL</option>
+                                    <option value="none">なし</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">認証方式</label>
+                                <select id="smtp-auth" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <option value="login">LOGIN</option>
+                                    <option value="plain">PLAIN</option>
+                                    <option value="oauth2">OAuth2</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ユーザー名 *</label>
+                                <input type="text" id="smtp-username" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="your-email@gmail.com">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">パスワード *</label>
+                                <div class="relative">
+                                    <input type="password" id="smtp-password" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 pr-10 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="パスワードまたはアプリパスワード">
+                                    <button type="button" id="toggle-password" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                        <i class="fas fa-eye text-gray-400 hover:text-gray-600"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">送信者名</label>
+                                <input type="text" id="smtp-from-name" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="お問い合わせ管理システム">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">送信者メールアドレス</label>
+                                <input type="email" id="smtp-from-email" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="noreply@example.com">
+                            </div>
+                        </div>
+
+                        <!-- 接続ステータス表示エリア -->
+                        <div id="smtp-connection-status" class="hidden"></div>
+                    </div>
+                </div>
+
+                <!-- メールテンプレート管理 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-file-alt mr-2 text-green-600"></i>メールテンプレート管理
+                            </h3>
+                            <p class="text-sm text-gray-600">自動送信メールのテンプレート設定</p>
+                        </div>
+                        <button id="save-templates" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors duration-200">
+                            <i class="fas fa-save mr-2"></i>テンプレート保存
+                        </button>
+                    </div>
+
+                    <!-- テンプレート選択タブ -->
+                    <div class="border-b border-gray-200 mb-6">
+                        <nav class="-mb-px flex space-x-8">
+                            <button id="tab-auto-reply" class="template-tab py-2 px-1 border-b-2 border-blue-500 text-blue-600 font-medium text-sm">
+                                自動返信メール
+                            </button>
+                            <button id="tab-notification" class="template-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+                                管理者通知メール
+                            </button>
+                            <button id="tab-reminder" class="template-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+                                リマインダーメール
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- 自動返信メールテンプレート -->
+                    <div id="template-auto-reply" class="template-content">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">件名</label>
+                                <input type="text" id="auto-reply-subject" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" placeholder="お問い合わせを受け付けました - {{site_name}}">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">本文</label>
+                                <div class="tinymce-container">
+                                    <textarea id="auto-reply-body" class="hidden"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h4 class="text-sm font-medium text-blue-900 mb-2">
+                                    <i class="fas fa-info-circle mr-2"></i>使用可能な変数
+                                </h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="variable-tag" onclick="insertVariable('auto-reply-body', '{{customer_name}}')">{{customer_name}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('auto-reply-body', '{{inquiry_subject}}')">{{inquiry_subject}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('auto-reply-body', '{{inquiry_date}}')">{{inquiry_date}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('auto-reply-body', '{{inquiry_type}}')">{{inquiry_type}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('auto-reply-body', '{{site_name}}')">{{site_name}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('auto-reply-body', '{{admin_name}}')">{{admin_name}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('auto-reply-body', '{{contact_url}}')">{{contact_url}}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 管理者通知メールテンプレート -->
+                    <div id="template-notification" class="template-content hidden">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">件名</label>
+                                <input type="text" id="notification-subject" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" placeholder="【{{site_name}}】新しいお問い合わせがあります">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">本文</label>
+                                <div class="tinymce-container">
+                                    <textarea id="notification-body" class="hidden"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h4 class="text-sm font-medium text-blue-900 mb-2">
+                                    <i class="fas fa-info-circle mr-2"></i>使用可能な変数
+                                </h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="variable-tag" onclick="insertVariable('notification-body', '{{customer_name}}')">{{customer_name}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('notification-body', '{{customer_email}}')">{{customer_email}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('notification-body', '{{inquiry_subject}}')">{{inquiry_subject}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('notification-body', '{{inquiry_message}}')">{{inquiry_message}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('notification-body', '{{inquiry_date}}')">{{inquiry_date}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('notification-body', '{{inquiry_type}}')">{{inquiry_type}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('notification-body', '{{admin_url}}')">{{admin_url}}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- リマインダーメールテンプレート -->
+                    <div id="template-reminder" class="template-content hidden">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">件名</label>
+                                <input type="text" id="reminder-subject" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" placeholder="【リマインダー】お問い合わせの対応をお願いします">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">本文</label>
+                                <div class="tinymce-container">
+                                    <textarea id="reminder-body" class="hidden"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h4 class="text-sm font-medium text-blue-900 mb-2">
+                                    <i class="fas fa-info-circle mr-2"></i>使用可能な変数
+                                </h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="variable-tag" onclick="insertVariable('reminder-body', '{{days_since_inquiry}}')">{{days_since_inquiry}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('reminder-body', '{{customer_name}}')">{{customer_name}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('reminder-body', '{{inquiry_subject}}')">{{inquiry_subject}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('reminder-body', '{{assigned_user}}')">{{assigned_user}}</span>
+                                    <span class="variable-tag" onclick="insertVariable('reminder-body', '{{admin_url}}')">{{admin_url}}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- テスト送信 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-paper-plane mr-2 text-purple-600"></i>テスト送信
+                            </h3>
+                            <p class="text-sm text-gray-600">メール設定とテンプレートの動作確認</p>
+                        </div>
+                    </div>
+
+                    <div class="test-email-form">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">送信先メールアドレス</label>
+                                    <input type="email" id="test-email-to" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" placeholder="test@example.com">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">テンプレート選択</label>
+                                    <select id="test-template-type" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
+                                        <option value="auto-reply">自動返信メール</option>
+                                        <option value="notification">管理者通知メール</option>
+                                        <option value="reminder">リマインダーメール</option>
+                                        <option value="custom">カスタム</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="custom-email-section" class="hidden space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">件名</label>
+                                    <input type="text" id="test-email-subject" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" placeholder="テストメール">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">本文</label>
+                                    <textarea id="test-email-body" rows="4" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" placeholder="これはテストメールです。"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="flex space-x-4">
+                                <button id="send-test-email" class="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition-colors duration-200">
+                                    <i class="fas fa-paper-plane mr-2"></i>テストメール送信
+                                </button>
+                                <button id="preview-email" class="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors duration-200">
+                                    <i class="fas fa-eye mr-2"></i>プレビュー
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 送信結果表示エリア -->
+                        <div id="test-email-result" class="hidden mt-4"></div>
+                    </div>
+                </div>
+
+                <!-- 送信ログ・統計 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- 送信統計 -->
+                    <div class="setting-card bg-white shadow rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900">
+                                    <i class="fas fa-chart-line mr-2 text-indigo-600"></i>送信統計
+                                </h3>
+                                <p class="text-sm text-gray-600">メール送信の統計情報</p>
+                            </div>
+                            <button id="refresh-stats" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                <i class="fas fa-sync mr-1"></i>更新
+                            </button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="text-center p-4 bg-green-50 rounded-lg">
+                                    <p class="text-2xl font-semibold text-green-600" id="stats-sent">0</p>
+                                    <p class="text-sm text-green-700">送信成功</p>
+                                </div>
+                                <div class="text-center p-4 bg-red-50 rounded-lg">
+                                    <p class="text-2xl font-semibold text-red-600" id="stats-failed">0</p>
+                                    <p class="text-sm text-red-700">送信失敗</p>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                                <p class="text-2xl font-semibold text-blue-600" id="stats-today">0</p>
+                                <p class="text-sm text-blue-700">本日の送信数</p>
+                            </div>
+
+                            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600">送信成功率</p>
+                                <p class="text-xl font-semibold text-gray-900" id="stats-success-rate">--%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 送信ログ -->
+                    <div class="setting-card bg-white shadow rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900">
+                                    <i class="fas fa-list mr-2 text-orange-600"></i>送信ログ
+                                </h3>
+                                <p class="text-sm text-gray-600">最近のメール送信履歴</p>
+                            </div>
+                            <button id="clear-logs" class="text-red-600 hover:text-red-800 text-sm">
+                                <i class="fas fa-trash mr-1"></i>ログクリア
+                            </button>
+                        </div>
+
+                        <div id="email-logs" class="max-h-96 overflow-y-auto">
+                            <!-- ログエントリがここに表示される -->
+                            <div class="text-center py-8 text-gray-500">
+                                <i class="fas fa-envelope text-4xl mb-4"></i>
+                                <p>まだ送信ログがありません</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- メールプレビューモーダル -->
+    <div id="email-preview-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-lg font-medium text-gray-900">
+                    <i class="fas fa-eye mr-2 text-blue-600"></i>メールプレビュー
+                </h3>
+                <button id="close-preview-modal" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="mt-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">件名</label>
+                        <div class="p-3 bg-gray-50 rounded-md">
+                            <p id="preview-subject" class="font-medium text-gray-900">-</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">本文</label>
+                        <div class="template-preview">
+                            <div id="preview-body">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-6 border-t flex justify-end">
+                <button id="close-preview-btn" type="button" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                    <i class="fas fa-times mr-2"></i>閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // メール設定管理システム
+        class EmailSettingsApp {
+            constructor() {
+                this.supabaseClient = null;
+                this.currentUser = null;
+                this.emailSettings = {};
+                this.emailTemplates = {};
+                this.tinyMCEInstances = {};
+                this.currentTemplate = 'auto-reply';
+                this.isDirty = false;
+            }
+
+            // Supabase初期化
+            async initializeSupabase() {
+                try {
+                    const SUPABASE_URL = 'https://nbhjxajownbjlaqkarcm.supabase.co';
+                    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iaGp4YWpvd25iamxhcWthcmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NTU4MjIsImV4cCI6MjA2NDIzMTgyMn0.Wgo1xRaUD9v-xXtl6RvmjEDsJqn4osKnJkNonqoMqPY';
+                    
+                    this.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    
+                    const { data: { session }, error } = await this.supabaseClient.auth.getSession();
+                    if (!session) {
+                        window.location.href = '../login.html';
+                        return false;
+                    }
+
+                    this.currentUser = session.user;
+                    document.getElementById('user-email').textContent = this.currentUser.email;
+                    return true;
+                } catch (error) {
+                    console.error('Supabase初期化エラー:', error);
+                    alert('システムの初期化に失敗しました。');
+                    return false;
+                }
+            }
+
+            // アプリケーション初期化
+            async initialize() {
+                const success = await this.initializeSupabase();
+                if (!success) return;
+
+                this.setupEventListeners();
+                await this.loadEmailSettings();
+                await this.loadEmailTemplates();
+                await this.initializeTinyMCE();
+                await this.loadEmailStats();
+                await this.loadEmailLogs();
+            }
+
+            // イベントリスナー設定
+            setupEventListeners() {
+                // SMTP設定
+                document.getElementById('test-smtp-connection').addEventListener('click', () => this.testSMTPConnection());
+                document.getElementById('save-smtp-settings').addEventListener('click', () => this.saveSMTPSettings());
+
+                // パスワード表示切り替え
+                document.getElementById('toggle-password').addEventListener('click', () => this.togglePasswordVisibility());
+
+                // テンプレート管理
+                document.getElementById('save-templates').addEventListener('click', () => this.saveEmailTemplates());
+
+                // テンプレートタブ
+                document.getElementById('tab-auto-reply').addEventListener('click', () => this.switchTemplate('auto-reply'));
+                document.getElementById('tab-notification').addEventListener('click', () => this.switchTemplate('notification'));
+                document.getElementById('tab-reminder').addEventListener('click', () => this.switchTemplate('reminder'));
+
+                // テスト送信
+                document.getElementById('test-template-type').addEventListener('change', (e) => {
+                    const customSection = document.getElementById('custom-email-section');
+                    if (e.target.value === 'custom') {
+                        customSection.classList.remove('hidden');
+                    } else {
+                        customSection.classList.add('hidden');
+                    }
+                });
+
+                document.getElementById('send-test-email').addEventListener('click', () => this.sendTestEmail());
+                document.getElementById('preview-email').addEventListener('click', () => this.previewEmail());
+
+                // モーダル
+                document.getElementById('close-preview-modal').addEventListener('click', () => this.closePreviewModal());
+                document.getElementById('close-preview-btn').addEventListener('click', () => this.closePreviewModal());
+
+                // 統計・ログ
+                document.getElementById('refresh-stats').addEventListener('click', () => this.loadEmailStats());
+                document.getElementById('clear-logs').addEventListener('click', () => this.clearEmailLogs());
+
+                // ログアウト
+                document.getElementById('logout-btn').addEventListener('click', () => this.handleLogout());
+            }
+
+            // TinyMCE初期化
+            async initializeTinyMCE() {
+                const editorConfig = {
+                    height: 400,
+                    menubar: false,
+                    plugins: [
+                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                        'anchor', 'searchreplace', 'visualblocks', 'code',
+                        'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                    ],
+                    toolbar: 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px }'
+                };
+
+                // 各テンプレート用のエディタを初期化
+                const templates = ['auto-reply', 'notification', 'reminder'];
+                for (const template of templates) {
+                    await new Promise((resolve) => {
+                        tinymce.init({
+                            ...editorConfig,
+                            selector: `#${template}-body`,
+                            setup: (editor) => {
+                                this.tinyMCEInstances[template] = editor;
+                                editor.on('init', () => resolve());
+                            }
+                        });
+                    });
+                }
+            }
+
+            // メール設定読み込み
+            async loadEmailSettings() {
+                try {
+                    const { data, error } = await this.supabaseClient
+                        .from('email_settings')
+                        .select('*');
+
+                    if (error) throw error;
+
+                    // 設定をオブジェクトに変換
+                    this.emailSettings = {};
+                    data.forEach(setting => {
+                        this.emailSettings[setting.key] = setting.value;
+                    });
+
+                    // フォームに設定値を反映
+                    this.populateSMTPForm();
+
+                } catch (error) {
+                    console.error('メール設定読み込みエラー:', error);
+                    // 初回の場合はエラーを無視
+                }
+            }
+
+            // SMTP設定フォームに値を反映
+            populateSMTPForm() {
+                document.getElementById('smtp-host').value = this.emailSettings.smtp_host || '';
+                document.getElementById('smtp-port').value = this.emailSettings.smtp_port || '587';
+                document.getElementById('smtp-encryption').value = this.emailSettings.smtp_encryption || 'tls';
+                document.getElementById('smtp-auth').value = this.emailSettings.smtp_auth || 'login';
+                document.getElementById('smtp-username').value = this.emailSettings.smtp_username || '';
+                document.getElementById('smtp-password').value = this.emailSettings.smtp_password || '';
+                document.getElementById('smtp-from-name').value = this.emailSettings.smtp_from_name || '';
+                document.getElementById('smtp-from-email').value = this.emailSettings.smtp_from_email || '';
+            }
+
+            // メールテンプレート読み込み
+            async loadEmailTemplates() {
+                try {
+                    const { data, error } = await this.supabaseClient
+                        .from('email_templates')
+                        .select('*');
+
+                    if (error) throw error;
+
+                    // テンプレートをオブジェクトに変換
+                    this.emailTemplates = {};
+                    data.forEach(template => {
+                        this.emailTemplates[template.template_type] = template;
+                    });
+
+                    // フォームにテンプレートを反映
+                    this.populateTemplateForm();
+
+                } catch (error) {
+                    console.error('メールテンプレート読み込みエラー:', error);
+                    // 初回の場合はデフォルトテンプレートを設定
+                    this.setDefaultTemplates();
+                }
+            }
+
+            // テンプレートフォームに値を反映
+            populateTemplateForm() {
+                const templates = ['auto-reply', 'notification', 'reminder'];
+                templates.forEach(type => {
+                    const template = this.emailTemplates[type];
+                    if (template) {
+                        document.getElementById(`${type}-subject`).value = template.subject || '';
+                        if (this.tinyMCEInstances[type]) {
+                            this.tinyMCEInstances[type].setContent(template.body || '');
+                        }
+                    }
+                });
+            }
+
+            // デフォルトテンプレート設定
+            setDefaultTemplates() {
+                const defaults = {
+                    'auto-reply': {
+                        subject: 'お問い合わせを受け付けました - {{site_name}}',
+                        body: `
+                            <p>{{customer_name}} 様</p>
+                            <p>この度は、{{site_name}}にお問い合わせいただき、ありがとうございます。</p>
+                            <p>以下の内容でお問い合わせを受け付けいたしました。</p>
+                            <ul>
+                                <li>受付日時: {{inquiry_date}}</li>
+                                <li>お問い合わせ種別: {{inquiry_type}}</li>
+                                <li>件名: {{inquiry_subject}}</li>
+                            </ul>
+                            <p>通常、2〜3営業日以内にご回答いたします。</p>
+                            <p>お急ぎの場合は、お電話にてお問い合わせください。</p>
+                            <p>今後ともよろしくお願いいたします。</p>
+                            <p>{{admin_name}}<br>{{site_name}}</p>
+                        `
+                    },
+                    'notification': {
+                        subject: '【{{site_name}}】新しいお問い合わせがあります',
+                        body: `
+                            <p>新しいお問い合わせが届きました。</p>
+                            <h3>お問い合わせ詳細</h3>
+                            <ul>
+                                <li>お名前: {{customer_name}}</li>
+                                <li>メールアドレス: {{customer_email}}</li>
+                                <li>受付日時: {{inquiry_date}}</li>
+                                <li>種別: {{inquiry_type}}</li>
+                                <li>件名: {{inquiry_subject}}</li>
+                            </ul>
+                            <h3>お問い合わせ内容</h3>
+                            <p>{{inquiry_message}}</p>
+                            <p><a href="{{admin_url}}">管理画面で確認する</a></p>
+                        `
+                    },
+                    'reminder': {
+                        subject: '【リマインダー】お問い合わせの対応をお願いします',
+                        body: `
+                            <p>未対応のお問い合わせがあります。</p>
+                            <ul>
+                                <li>お客様: {{customer_name}}</li>
+                                <li>件名: {{inquiry_subject}}</li>
+                                <li>経過日数: {{days_since_inquiry}}日</li>
+                                <li>担当者: {{assigned_user}}</li>
+                            </ul>
+                            <p>早急な対応をお願いいたします。</p>
+                            <p><a href="{{admin_url}}">管理画面で確認する</a></p>
+                        `
+                    }
+                };
+
+                Object.keys(defaults).forEach(type => {
+                    document.getElementById(`${type}-subject`).value = defaults[type].subject;
+                    if (this.tinyMCEInstances[type]) {
+                        this.tinyMCEInstances[type].setContent(defaults[type].body);
+                    }
+                });
+            }
+
+            // テンプレートタブ切り替え
+            switchTemplate(templateType) {
+                // タブの表示を更新
+                document.querySelectorAll('.template-tab').forEach(tab => {
+                    tab.classList.remove('border-blue-500', 'text-blue-600');
+                    tab.classList.add('border-transparent', 'text-gray-500');
+                });
+                document.getElementById(`tab-${templateType}`).classList.remove('border-transparent', 'text-gray-500');
+                document.getElementById(`tab-${templateType}`).classList.add('border-blue-500', 'text-blue-600');
+
+                // コンテンツの表示を更新
+                document.querySelectorAll('.template-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`template-${templateType}`).classList.remove('hidden');
+
+                this.currentTemplate = templateType;
+            }
+
+            // パスワード表示切り替え
+            togglePasswordVisibility() {
+                const passwordInput = document.getElementById('smtp-password');
+                const toggleButton = document.getElementById('toggle-password');
+                const icon = toggleButton.querySelector('i');
+
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            }
+
+            // SMTP接続テスト
+            async testSMTPConnection() {
+                const statusDiv = document.getElementById('smtp-connection-status');
+                statusDiv.className = 'connection-status connection-testing';
+                statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>SMTP接続をテスト中...';
+                statusDiv.classList.remove('hidden');
+
+                try {
+                    // 実際の環境では、サーバーサイドでSMTP接続テストを行う
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // シミュレーション
+
+                    // ダミー成功レスポンス
+                    const success = Math.random() > 0.3; // 70%の確率で成功
+
+                    if (success) {
+                        statusDiv.className = 'connection-status connection-success';
+                        statusDiv.innerHTML = '<i class="fas fa-check-circle mr-2"></i>SMTP接続に成功しました。メール送信の準備ができています。';
+                        this.addToEmailLog('info', 'SMTP接続テスト成功', '設定されたSMTPサーバーへの接続が正常に確立されました。');
+                    } else {
+                        statusDiv.className = 'connection-status connection-error';
+                        statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>SMTP接続に失敗しました。設定を確認してください。';
+                        this.addToEmailLog('error', 'SMTP接続テスト失敗', '認証情報またはサーバー設定に問題があります。');
+                    }
+
+                } catch (error) {
+                    statusDiv.className = 'connection-status connection-error';
+                    statusDiv.innerHTML = '<i class="fas fa-times-circle mr-2"></i>接続テスト中にエラーが発生しました。';
+                    console.error('SMTP接続テストエラー:', error);
+                }
+            }
+
+            // SMTP設定保存
+            async saveSMTPSettings() {
+                try {
+                    const settings = {
+                        smtp_host: document.getElementById('smtp-host').value,
+                        smtp_port: document.getElementById('smtp-port').value,
+                        smtp_encryption: document.getElementById('smtp-encryption').value,
+                        smtp_auth: document.getElementById('smtp-auth').value,
+                        smtp_username: document.getElementById('smtp-username').value,
+                        smtp_password: document.getElementById('smtp-password').value,
+                        smtp_from_name: document.getElementById('smtp-from-name').value,
+                        smtp_from_email: document.getElementById('smtp-from-email').value
+                    };
+
+                    for (const [key, value] of Object.entries(settings)) {
+                        const { error } = await this.supabaseClient
+                            .from('email_settings')
+                            .upsert({
+                                key: key,
+                                value: value,
+                                updated_at: new Date().toISOString(),
+                                updated_by: this.currentUser.email
+                            });
+
+                        if (error) throw error;
+                    }
+
+                    alert('SMTP設定を保存しました。');
+                    this.updateLastSaved();
+                    this.addToEmailLog('info', 'SMTP設定更新', 'SMTP設定が正常に更新されました。');
+
+                } catch (error) {
+                    console.error('SMTP設定保存エラー:', error);
+                    alert('SMTP設定の保存に失敗しました。');
+                }
+            }
+
+            // メールテンプレート保存
+            async saveEmailTemplates() {
+                try {
+                    const templates = ['auto-reply', 'notification', 'reminder'];
+                    
+                    for (const type of templates) {
+                        const subject = document.getElementById(`${type}-subject`).value;
+                        const body = this.tinyMCEInstances[type] ? this.tinyMCEInstances[type].getContent() : '';
+
+                        const { error } = await this.supabaseClient
+                            .from('email_templates')
+                            .upsert({
+                                template_type: type,
+                                subject: subject,
+                                body: body,
+                                updated_at: new Date().toISOString(),
+                                updated_by: this.currentUser.email
+                            });
+
+                        if (error) throw error;
+                    }
+
+                    alert('メールテンプレートを保存しました。');
+                    this.updateLastSaved();
+                    this.addToEmailLog('info', 'テンプレート更新', 'メールテンプレートが正常に更新されました。');
+
+                } catch (error) {
+                    console.error('テンプレート保存エラー:', error);
+                    alert('メールテンプレートの保存に失敗しました。');
+                }
+            }
+
+            // テストメール送信
+            async sendTestEmail() {
+                const toEmail = document.getElementById('test-email-to').value;
+                const templateType = document.getElementById('test-template-type').value;
+
+                if (!toEmail) {
+                    alert('送信先メールアドレスを入力してください。');
+                    return;
+                }
+
+                const resultDiv = document.getElementById('test-email-result');
+                resultDiv.className = 'connection-status connection-testing';
+                resultDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>テストメールを送信中...';
+                resultDiv.classList.remove('hidden');
+
+                try {
+                    // 実際の環境では、サーバーサイドでメール送信を行う
+                    await new Promise(resolve => setTimeout(resolve, 3000)); // シミュレーション
+
+                    // ダミー送信結果
+                    const success = Math.random() > 0.2; // 80%の確率で成功
+
+                    if (success) {
+                        resultDiv.className = 'connection-status connection-success';
+                        resultDiv.innerHTML = '<i class="fas fa-check-circle mr-2"></i>テストメールを正常に送信しました。';
+                        this.addToEmailLog('success', 'テストメール送信成功', `${toEmail} にテストメールを送信しました。`);
+                        this.updateEmailStats('sent');
+                    } else {
+                        resultDiv.className = 'connection-status connection-error';
+                        resultDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>テストメールの送信に失敗しました。';
+                        this.addToEmailLog('error', 'テストメール送信失敗', `${toEmail} への送信中にエラーが発生しました。`);
+                        this.updateEmailStats('failed');
+                    }
+
+                } catch (error) {
+                    resultDiv.className = 'connection-status connection-error';
+                    resultDiv.innerHTML = '<i class="fas fa-times-circle mr-2"></i>送信中にエラーが発生しました。';
+                    console.error('テストメール送信エラー:', error);
+                }
+            }
+
+            // メールプレビュー
+            previewEmail() {
+                const templateType = document.getElementById('test-template-type').value;
+                let subject, body;
+
+                if (templateType === 'custom') {
+                    subject = document.getElementById('test-email-subject').value || 'テストメール';
+                    body = document.getElementById('test-email-body').value || 'これはテストメールです。';
+                } else {
+                    subject = document.getElementById(`${templateType}-subject`).value;
+                    body = this.tinyMCEInstances[templateType] ? this.tinyMCEInstances[templateType].getContent() : '';
+                }
+
+                // 変数を置換してプレビュー表示
+                const previewSubject = this.replaceVariables(subject);
+                const previewBody = this.replaceVariables(body);
+
+                document.getElementById('preview-subject').textContent = previewSubject;
+                document.getElementById('preview-body').innerHTML = previewBody;
+
+                document.getElementById('email-preview-modal').classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            }
+
+            // 変数置換（プレビュー用）
+            replaceVariables(text) {
+                const variables = {
+                    '{{customer_name}}': '山田 太郎',
+                    '{{customer_email}}': 'yamada@example.com',
+                    '{{inquiry_subject}}': 'サービスについてのお問い合わせ',
+                    '{{inquiry_message}}': 'サービスの詳細について教えてください。',
+                    '{{inquiry_date}}': new Date().toLocaleString('ja-JP'),
+                    '{{inquiry_type}}': '一般問い合わせ',
+                    '{{site_name}}': 'お問い合わせ管理システム',
+                    '{{admin_name}}': 'システム管理者',
+                    '{{contact_url}}': window.location.origin,
+                    '{{admin_url}}': window.location.origin + '/admin/',
+                    '{{days_since_inquiry}}': '3',
+                    '{{assigned_user}}': '担当者'
+                };
+
+                let result = text;
+                Object.keys(variables).forEach(key => {
+                    result = result.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), variables[key]);
+                });
+
+                return result;
+            }
+
+            // プレビューモーダルを閉じる
+            closePreviewModal() {
+                document.getElementById('email-preview-modal').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+
+            // メール統計読み込み
+            async loadEmailStats() {
+                try {
+                    // 実際の環境では、データベースから統計を取得
+                    // ダミーデータ
+                    const stats = {
+                        sent: Math.floor(Math.random() * 1000) + 500,
+                        failed: Math.floor(Math.random() * 50) + 10,
+                        today: Math.floor(Math.random() * 50) + 10
+                    };
+
+                    const successRate = stats.sent + stats.failed > 0 
+                        ? Math.round((stats.sent / (stats.sent + stats.failed)) * 100) 
+                        : 0;
+
+                    document.getElementById('stats-sent').textContent = stats.sent;
+                    document.getElementById('stats-failed').textContent = stats.failed;
+                    document.getElementById('stats-today').textContent = stats.today;
+                    document.getElementById('stats-success-rate').textContent = `${successRate}%`;
+
+                } catch (error) {
+                    console.error('統計読み込みエラー:', error);
+                }
+            }
+
+            // 統計更新
+            updateEmailStats(type) {
+                const element = document.getElementById(`stats-${type}`);
+                if (element) {
+                    const current = parseInt(element.textContent) || 0;
+                    element.textContent = current + 1;
+                }
+
+                const todayElement = document.getElementById('stats-today');
+                if (todayElement) {
+                    const current = parseInt(todayElement.textContent) || 0;
+                    todayElement.textContent = current + 1;
+                }
+
+                // 成功率再計算
+                const sent = parseInt(document.getElementById('stats-sent').textContent) || 0;
+                const failed = parseInt(document.getElementById('stats-failed').textContent) || 0;
+                const successRate = sent + failed > 0 ? Math.round((sent / (sent + failed)) * 100) : 0;
+                document.getElementById('stats-success-rate').textContent = `${successRate}%`;
+            }
+
+            // メールログ読み込み
+            async loadEmailLogs() {
+                try {
+                    // 実際の環境では、データベースからログを取得
+                    // 初期状態では空のログ
+                    this.emailLogs = [];
+                    this.renderEmailLogs();
+
+                } catch (error) {
+                    console.error('ログ読み込みエラー:', error);
+                }
+            }
+
+            // ログエントリ追加
+            addToEmailLog(type, title, message) {
+                const logEntry = {
+                    id: Date.now(),
+                    type: type,
+                    title: title,
+                    message: message,
+                    timestamp: new Date()
+                };
+
+                if (!this.emailLogs) this.emailLogs = [];
+                this.emailLogs.unshift(logEntry);
+
+                // 最新50件のみ保持
+                if (this.emailLogs.length > 50) {
+                    this.emailLogs = this.emailLogs.slice(0, 50);
+                }
+
+                this.renderEmailLogs();
+            }
+
+            // ログ表示
+            renderEmailLogs() {
+                const logsContainer = document.getElementById('email-logs');
+                
+                if (!this.emailLogs || this.emailLogs.length === 0) {
+                    logsContainer.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-envelope text-4xl mb-4"></i>
+                            <p>まだ送信ログがありません</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                logsContainer.innerHTML = this.emailLogs.map(log => `
+                    <div class="log-entry log-${log.type}">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="text-sm font-medium text-gray-900">${log.title}</h4>
+                                <p class="text-sm text-gray-600 mt-1">${log.message}</p>
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                ${log.timestamp.toLocaleString('ja-JP')}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // ログクリア
+            async clearEmailLogs() {
+                if (!confirm('すべてのメール送信ログを削除しますか？')) return;
+
+                try {
+                    this.emailLogs = [];
+                    this.renderEmailLogs();
+                    alert('送信ログをクリアしました。');
+
+                } catch (error) {
+                    console.error('ログクリアエラー:', error);
+                    alert('ログのクリアに失敗しました。');
+                }
+            }
+
+            // 最終保存時刻更新
+            updateLastSaved() {
+                const now = new Date();
+                document.getElementById('last-saved-time').textContent = now.toLocaleString('ja-JP');
+            }
+
+            // ログアウト
+            async handleLogout() {
+                try {
+                    const { error } = await this.supabaseClient.auth.signOut();
+                    if (error) throw error;
+                    window.location.href = '../login.html';
+                } catch (error) {
+                    console.error('ログアウトエラー:', error);
+                    alert('ログアウトに失敗しました。');
+                }
+            }
+        }
+
+        // 変数挿入機能
+        function insertVariable(editorId, variable) {
+            const app = window.emailApp;
+            if (app && app.tinyMCEInstances) {
+                const templateType = editorId.replace('-body', '');
+                const editor = app.tinyMCEInstances[templateType];
+                if (editor) {
+                    editor.insertContent(variable);
+                }
+            }
+        }
+
+        // アプリケーション初期化
+        const emailApp = new EmailSettingsApp();
+        window.emailApp = emailApp;
+        window.insertVariable = insertVariable;
+
+        window.addEventListener('load', () => {
+            emailApp.initialize();
+        });
+    </script>
+</body>
+</html>

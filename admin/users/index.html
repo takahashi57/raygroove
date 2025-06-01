@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ユーザー管理 - お問い合わせ管理システム</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        /* ユーザー管理専用スタイル */
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .role-badge {
+            transition: all 0.2s ease;
+        }
+        .role-admin {
+            background-color: #dc2626;
+            color: white;
+        }
+        .role-manager {
+            background-color: #2563eb;
+            color: white;
+        }
+        .role-operator {
+            background-color: #059669;
+            color: white;
+        }
+        .role-viewer {
+            background-color: #6b7280;
+            color: white;
+        }
+        .status-active {
+            color: #059669;
+        }
+        .status-inactive {
+            color: #dc2626;
+        }
+        .permission-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .permission-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+        .permission-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- サイドバー -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">管理画面</h1>
+                <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
+            </div>
+            <nav class="mt-4">
+                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-inbox mr-3"></i> お問い合わせ一覧
+                </a>
+                <a href="index.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
+                    <i class="fas fa-users mr-3"></i> ユーザー管理
+                </a>
+                <a href="../settings/general.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-cog mr-3"></i> システム設定
+                </a>
+                <a href="#" id="logout-btn" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-sign-out-alt mr-3"></i> ログアウト
+                </a>
+            </nav>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">ユーザー管理</h2>
+                        <p class="text-sm text-gray-600">システムユーザーの管理・権限設定</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="user-email" class="text-sm text-gray-600">読み込み中...</span>
+                    </div>
+                </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <!-- 統計情報 -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                    <i class="fas fa-users text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">総ユーザー数</dt>
+                                        <dd class="text-2xl font-semibold text-gray-900" id="total-users">0</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                    <i class="fas fa-user-check text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">アクティブ</dt>
+                                        <dd class="text-2xl font-semibold text-gray-900" id="active-users">0</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                    <i class="fas fa-user-shield text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">管理者</dt>
+                                        <dd class="text-2xl font-semibold text-gray-900" id="admin-users">0</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                    <i class="fas fa-user-clock text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">最近のログイン</dt>
+                                        <dd class="text-sm font-semibold text-gray-900" id="recent-logins">0人</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 検索・操作バー -->
+                <div class="bg-white shadow rounded-lg p-4 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+                        <div class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search text-gray-400"></i>
+                                </div>
+                                <input type="text" id="search-users" placeholder="名前、メールで検索..." 
+                                       class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <select id="role-filter" class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="">すべての権限</option>
+                                <option value="admin">管理者</option>
+                                <option value="manager">マネージャー</option>
+                                <option value="operator">オペレーター</option>
+                                <option value="viewer">閲覧者</option>
+                            </select>
+                            <select id="status-filter" class="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="">すべてのステータス</option>
+                                <option value="active">アクティブ</option>
+                                <option value="inactive">非アクティブ</option>
+                            </select>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="refresh-users" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200">
+                                <i class="fas fa-sync mr-2"></i>更新
+                            </button>
+                            <button id="add-user-btn" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors duration-200">
+                                <i class="fas fa-user-plus mr-2"></i>新規ユーザー
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ユーザー一覧テーブル -->
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ユーザー
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        権限
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ステータス
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        最終ログイン
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        作成日
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        操作
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>ユーザー情報を読み込んでいます...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- ページネーション -->
+                    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                        <div class="flex-1 flex justify-between sm:hidden">
+                            <button id="prev-page-mobile" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                前へ
+                            </button>
+                            <span class="text-sm text-gray-700 mx-4 my-auto">
+                                <span id="current-page">1</span> / <span id="total-pages">1</span>
+                            </span>
+                            <button id="next-page-mobile" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                次へ
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    全 <span id="total-items">0</span> 件中
+                                    <span id="start-item">0</span> - <span id="end-item">0</span> 件を表示
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <button id="first-page" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">最初</span>
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </button>
+                                    <button id="prev-page" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">前へ</span>
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <div id="page-numbers" class="flex">
+                                        <!-- ページ番号がここに挿入されます -->
+                                    </div>
+                                    <button id="next-page" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">次へ</span>
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                    <button id="last-page" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">最後</span>
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 新規ユーザー追加モーダル -->
+    <div id="add-user-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg font-medium text-gray-900">
+                    <i class="fas fa-user-plus mr-2 text-green-600"></i>新規ユーザー追加
+                </h3>
+                <button id="close-add-modal" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="add-user-form" class="mt-4 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">氏名 *</label>
+                        <input type="text" id="new-user-name" required class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="山田 太郎">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">メールアドレス *</label>
+                        <input type="email" id="new-user-email" required class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="user@example.com">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">パスワード *</label>
+                        <input type="password" id="new-user-password" required class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="パスワード（8文字以上）">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">権限 *</label>
+                        <select id="new-user-role" required class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="">権限を選択</option>
+                            <option value="admin">管理者</option>
+                            <option value="manager">マネージャー</option>
+                            <option value="operator">オペレーター</option>
+                            <option value="viewer">閲覧者</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">部署・役職</label>
+                    <input type="text" id="new-user-department" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="例: 営業部 主任">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">備考</label>
+                    <textarea id="new-user-notes" rows="3" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="ユーザーに関する備考・メモ"></textarea>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="send-invite-email" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <label for="send-invite-email" class="ml-2 text-sm text-gray-600">招待メールを送信する</label>
+                </div>
+            </form>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-add-user" type="button" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                    キャンセル
+                </button>
+                <button id="confirm-add-user" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors duration-200">
+                    <i class="fas fa-user-plus mr-2"></i>ユーザー追加
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ユーザー詳細・編集モーダル -->
+    <div id="user-detail-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-lg font-medium text-gray-900">
+                    <i class="fas fa-user-edit mr-2 text-blue-600"></i>ユーザー詳細・編集
+                </h3>
+                <button id="close-detail-modal" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- ユーザー詳細情報 -->
+            <div class="mt-6">
+                <div class="flex items-start space-x-6 mb-6">
+                    <div class="flex-shrink-0">
+                        <img id="detail-user-avatar" class="h-20 w-20 rounded-full object-cover border-4 border-gray-200" src="https://picsum.photos/80/80?random=1" alt="ユーザーアバター">
+                        <button id="change-avatar-btn" class="mt-2 text-xs text-indigo-600 hover:text-indigo-800">
+                            <i class="fas fa-camera mr-1"></i>変更
+                        </button>
+                        <input type="file" id="avatar-upload" accept="image/*" class="hidden">
+                    </div>
+                    <div class="flex-1">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">氏名</label>
+                                <input type="text" id="detail-user-name" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">メールアドレス</label>
+                                <input type="email" id="detail-user-email" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">権限</label>
+                                <select id="detail-user-role" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <option value="admin">管理者</option>
+                                    <option value="manager">マネージャー</option>
+                                    <option value="operator">オペレーター</option>
+                                    <option value="viewer">閲覧者</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ステータス</label>
+                                <select id="detail-user-status" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <option value="active">アクティブ</option>
+                                    <option value="inactive">非アクティブ</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">部署・役職</label>
+                            <input type="text" id="detail-user-department" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 権限詳細設定 -->
+                <div class="border-t pt-6">
+                    <h4 class="text-md font-medium text-gray-900 mb-4">
+                        <i class="fas fa-key mr-2 text-yellow-600"></i>権限詳細設定
+                    </h4>
+                    <div class="permission-grid">
+                        <div class="permission-card">
+                            <h5 class="font-medium text-gray-900 mb-2">お問い合わせ管理</h5>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-contacts-view" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">閲覧</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-contacts-edit" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">編集</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-contacts-delete" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">削除</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="permission-card">
+                            <h5 class="font-medium text-gray-900 mb-2">ユーザー管理</h5>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-users-view" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">閲覧</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-users-edit" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">編集</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="permission-card">
+                            <h5 class="font-medium text-gray-900 mb-2">システム設定</h5>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-settings-view" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">閲覧</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-settings-edit" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">編集</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="permission-card">
+                            <h5 class="font-medium text-gray-900 mb-2">レポート・ログ</h5>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-reports-view" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">閲覧</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="perm-logs-view" class="rounded border-gray-300 text-indigo-600">
+                                    <span class="ml-2 text-sm text-gray-700">ログ閲覧</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 追加情報 -->
+                <div class="border-t pt-6 mt-6">
+                    <h4 class="text-md font-medium text-gray-900 mb-4">
+                        <i class="fas fa-info-circle mr-2 text-blue-600"></i>追加情報
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最終ログイン</label>
+                            <div class="p-3 bg-gray-50 rounded-md">
+                                <p id="detail-last-login" class="text-sm text-gray-900">-</p>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">作成日</label>
+                            <div class="p-3 bg-gray-50 rounded-md">
+                                <p id="detail-created-at" class="text-sm text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">備考</label>
+                        <textarea id="detail-user-notes" rows="3" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="ユーザーに関する備考・メモ"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- モーダルフッター -->
+            <div class="mt-8 pt-6 border-t flex justify-between">
+                <div class="flex space-x-3">
+                    <button id="reset-password-btn" class="px-4 py-2 bg-yellow-600 text-white rounded-md text-sm font-medium hover:bg-yellow-700 transition-colors duration-200">
+                        <i class="fas fa-key mr-2"></i>パスワードリセット
+                    </button>
+                    <button id="delete-user-btn" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors duration-200">
+                        <i class="fas fa-user-minus mr-2"></i>ユーザー削除
+                    </button>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="cancel-edit-user" type="button" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                        <i class="fas fa-times mr-2"></i>キャンセル
+                    </button>
+                    <button id="save-user-changes" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200">
+                        <i class="fas fa-save mr-2"></i>変更を保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ユーザー管理システム
+        class UserManagementApp {
+            constructor() {
+                this.supabaseClient = null;
+                this.currentUser = null;
+                this.users = [];
+                this.currentPage = 1;
+                this.itemsPerPage = 10;
+                this.totalItems = 0;
+                this.currentFilters = {
+                    search: '',
+                    role: '',
+                    status: ''
+                };
+                this.currentEditUserId = null;
+            }
+
+            // Supabase初期化
+            async initializeSupabase() {
+                try {
+                    const SUPABASE_URL = 'https://nbhjxajownbjlaqkarcm.supabase.co';
+                    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iaGp4YWpvd25iamxhcWthcmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NTU4MjIsImV4cCI6MjA2NDIzMTgyMn0.Wgo1xRaUD9v-xXtl6RvmjEDsJqn4osKnJkNonqoMqPY';
+                    
+                    this.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    
+                    const { data: { session }, error } = await this.supabaseClient.auth.getSession();
+                    if (!session) {
+                        window.location.href = '../login.html';
+                        return false;
+                    }
+
+                    this.currentUser = session.user;
+                    document.getElementById('user-email').textContent = this.currentUser.email;
+                    return true;
+                } catch (error) {
+                    console.error('Supabase初期化エラー:', error);
+                    alert('システムの初期化に失敗しました。');
+                    return false;
+                }
+            }
+
+            // アプリケーション初期化
+            async initialize() {
+                const success = await this.initializeSupabase();
+                if (!success) return;
+
+                this.setupEventListeners();
+                await this.loadUsers();
+                await this.loadUserStats();
+            }
+
+            // イベントリスナー設定
+            setupEventListeners() {
+                // 検索・フィルター
+                document.getElementById('search-users').addEventListener('input', (e) => {
+                    this.currentFilters.search = e.target.value;
+                    this.currentPage = 1;
+                    this.loadUsers();
+                });
+
+                document.getElementById('role-filter').addEventListener('change', (e) => {
+                    this.currentFilters.role = e.target.value;
+                    this.currentPage = 1;
+                    this.loadUsers();
+                });
+
+                document.getElementById('status-filter').addEventListener('change', (e) => {
+                    this.currentFilters.status = e.target.value;
+                    this.currentPage = 1;
+                    this.loadUsers();
+                });
+
+                // ボタン類
+                document.getElementById('refresh-users').addEventListener('click', () => {
+                    this.loadUsers();
+                    this.loadUserStats();
+                });
+
+                document.getElementById('add-user-btn').addEventListener('click', () => this.showAddUserModal());
+
+                // 新規ユーザー追加モーダル
+                document.getElementById('close-add-modal').addEventListener('click', () => this.closeAddUserModal());
+                document.getElementById('cancel-add-user').addEventListener('click', () => this.closeAddUserModal());
+                document.getElementById('confirm-add-user').addEventListener('click', () => this.addNewUser());
+
+                // ユーザー詳細モーダル
+                document.getElementById('close-detail-modal').addEventListener('click', () => this.closeUserDetailModal());
+                document.getElementById('cancel-edit-user').addEventListener('click', () => this.closeUserDetailModal());
+                document.getElementById('save-user-changes').addEventListener('click', () => this.saveUserChanges());
+                document.getElementById('reset-password-btn').addEventListener('click', () => this.resetUserPassword());
+                document.getElementById('delete-user-btn').addEventListener('click', () => this.deleteUser());
+
+                // アバター変更
+                document.getElementById('change-avatar-btn').addEventListener('click', () => {
+                    document.getElementById('avatar-upload').click();
+                });
+                document.getElementById('avatar-upload').addEventListener('change', (e) => this.handleAvatarUpload(e));
+
+                // ページネーション
+                document.getElementById('prev-page').addEventListener('click', () => this.previousPage());
+                document.getElementById('next-page').addEventListener('click', () => this.nextPage());
+                document.getElementById('first-page').addEventListener('click', () => this.firstPage());
+                document.getElementById('last-page').addEventListener('click', () => this.lastPage());
+
+                // ログアウト
+                document.getElementById('logout-btn').addEventListener('click', () => this.handleLogout());
+            }
+
+            // ユーザー一覧読み込み
+            async loadUsers() {
+                try {
+                    this.showLoading(true);
+                    
+                    let query = this.supabaseClient
+                        .from('app_users')
+                        .select('*', { count: 'exact' });
+
+                    // フィルター適用
+                    if (this.currentFilters.search) {
+                        const searchTerm = `%${this.currentFilters.search}%`;
+                        query = query.or(`name.ilike.${searchTerm},email.ilike.${searchTerm}`);
+                    }
+
+                    if (this.currentFilters.role) {
+                        query = query.eq('role', this.currentFilters.role);
+                    }
+
+                    if (this.currentFilters.status) {
+                        query = query.eq('status', this.currentFilters.status);
+                    }
+
+                    // ページネーション
+                    const from = (this.currentPage - 1) * this.itemsPerPage;
+                    const to = from + this.itemsPerPage - 1;
+                    
+                    const { data, count, error } = await query
+                        .order('created_at', { ascending: false })
+                        .range(from, to);
+
+                    if (error) throw error;
+
+                    this.users = data || [];
+                    this.totalItems = count || 0;
+
+                    this.renderUsers();
+                    this.updatePagination();
+
+                } catch (error) {
+                    console.error('ユーザー読み込みエラー:', error);
+                    alert('ユーザー情報の読み込みに失敗しました。');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // ユーザー統計読み込み
+            async loadUserStats() {
+                try {
+                    const { data: allUsers, error } = await this.supabaseClient
+                        .from('app_users')
+                        .select('role, status, last_login');
+
+                    if (error) throw error;
+
+                    const totalUsers = allUsers.length;
+                    const activeUsers = allUsers.filter(u => u.status === 'active').length;
+                    const adminUsers = allUsers.filter(u => u.role === 'admin').length;
+                    
+                    const recentLogins = allUsers.filter(u => {
+                        if (!u.last_login) return false;
+                        const lastLogin = new Date(u.last_login);
+                        const threeDaysAgo = new Date();
+                        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                        return lastLogin > threeDaysAgo;
+                    }).length;
+
+                    document.getElementById('total-users').textContent = totalUsers;
+                    document.getElementById('active-users').textContent = activeUsers;
+                    document.getElementById('admin-users').textContent = adminUsers;
+                    document.getElementById('recent-logins').textContent = `${recentLogins}人`;
+
+                } catch (error) {
+                    console.error('統計読み込みエラー:', error);
+                }
+            }
+
+          // ユーザーアバター生成関数（追加）
+generateUserAvatar(user) {
+    // 実際のアバター画像がある場合はそれを使用
+    if (user.avatar_url && user.avatar_url !== '') {
+        return `<img class="w-10 h-10 rounded-full mr-3 border-2 border-gray-200" src="${user.avatar_url}" alt="${user.name}">`;
+    }
+    
+    // アバター画像がない場合は文字アバターを生成
+    const initial = user.name ? user.name.charAt(0) : 'U';
+    const colors = [
+        'bg-blue-500', 'bg-green-500', 'bg-purple-500', 
+        'bg-pink-500', 'bg-indigo-500', 'bg-red-500',
+        'bg-yellow-500', 'bg-teal-500', 'bg-orange-500', 'bg-cyan-500'
+    ];
+    
+    // ユーザー名から一意の色を決定
+    let colorIndex = 0;
+    if (user.name) {
+        for (let i = 0; i < user.name.length; i++) {
+            colorIndex += user.name.charCodeAt(i);
+        }
+    }
+    const bgColor = colors[colorIndex % colors.length];
+    
+    return `
+        <div class="w-10 h-10 rounded-full ${bgColor} flex items-center justify-center mr-3 border-2 border-gray-200">
+            <span class="text-white text-sm font-bold">${initial}</span>
+        </div>
+    `;
+}
+
+// ユーザー一覧表示
+renderUsers() {
+    const tbody = document.getElementById('users-table-body');
+    
+    if (this.users.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                    該当するユーザーはいません。
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = this.users.map(user => `
+        <tr class="hover:bg-gray-50 transition-colors duration-200">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                    ${this.generateUserAvatar(user)}
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">${this.escapeHtml(user.name || '-')}</div>
+                        <div class="text-sm text-gray-500">${this.escapeHtml(user.email || '-')}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="role-badge px-2 py-1 text-xs font-semibold rounded-full role-${user.role}">
+                    ${this.getRoleLabel(user.role)}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="status-${user.status}">
+                    <i class="fas fa-circle text-xs mr-1"></i>
+                    ${user.status === 'active' ? 'アクティブ' : '非アクティブ'}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${user.last_login ? new Date(user.last_login).toLocaleDateString('ja-JP') : '-'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${new Date(user.created_at).toLocaleDateString('ja-JP')}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button onclick="userApp.editUser('${user.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3">
+                    <i class="fas fa-edit mr-1"></i>編集
+                </button>
+                <button onclick="userApp.toggleUserStatus('${user.id}', '${user.status}')" class="text-${user.status === 'active' ? 'red' : 'green'}-600 hover:text-${user.status === 'active' ? 'red' : 'green'}-900">
+                    <i class="fas fa-${user.status === 'active' ? 'ban' : 'check'} mr-1"></i>
+                    ${user.status === 'active' ? '無効化' : '有効化'}
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+            // 権限ラベル取得
+            getRoleLabel(role) {
+                const labels = {
+                    'admin': '管理者',
+                    'manager': 'マネージャー',
+                    'operator': 'オペレーター',
+                    'viewer': '閲覧者'
+                };
+                return labels[role] || role;
+            }
+
+            // 新規ユーザー追加モーダル表示
+            showAddUserModal() {
+                document.getElementById('add-user-modal').classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            }
+
+            // 新規ユーザー追加モーダル閉じる
+            closeAddUserModal() {
+                document.getElementById('add-user-modal').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                document.getElementById('add-user-form').reset();
+            }
+
+            // 新規ユーザー追加
+            async addNewUser() {
+                try {
+                    const name = document.getElementById('new-user-name').value;
+                    const email = document.getElementById('new-user-email').value;
+                    const password = document.getElementById('new-user-password').value;
+                    const role = document.getElementById('new-user-role').value;
+                    const department = document.getElementById('new-user-department').value;
+                    const notes = document.getElementById('new-user-notes').value;
+                    const sendInvite = document.getElementById('send-invite-email').checked;
+
+                    if (!name || !email || !password || !role) {
+                        alert('必須項目を入力してください。');
+                        return;
+                    }
+
+                    if (password.length < 8) {
+                        alert('パスワードは8文字以上で入力してください。');
+                        return;
+                    }
+
+                    // Supabase Authでユーザー作成
+                    const { data: authData, error: authError } = await this.supabaseClient.auth.admin.createUser({
+                        email: email,
+                        password: password,
+                        email_confirm: true
+                    });
+
+                    if (authError) throw authError;
+
+                    // app_usersテーブルにユーザー情報保存
+                    const { error: dbError } = await this.supabaseClient
+                        .from('app_users')
+                        .insert({
+                            id: authData.user.id,
+                            name: name,
+                            email: email,
+                            role: role,
+                            department: department,
+                            notes: notes,
+                            status: 'active',
+                            created_at: new Date().toISOString()
+                        });
+
+                    if (dbError) throw dbError;
+
+                    alert('ユーザーを追加しました。');
+                    this.closeAddUserModal();
+                    this.loadUsers();
+                    this.loadUserStats();
+
+                } catch (error) {
+                    console.error('ユーザー追加エラー:', error);
+                    alert('ユーザーの追加に失敗しました: ' + error.message);
+                }
+            }
+
+            // ユーザー編集
+            async editUser(userId) {
+                try {
+                    const { data: user, error } = await this.supabaseClient
+                        .from('app_users')
+                        .select('*')
+                        .eq('id', userId)
+                        .single();
+
+                    if (error) throw error;
+
+                    this.currentEditUserId = userId;
+                    
+                    // フォームにデータを設定
+                    document.getElementById('detail-user-name').value = user.name || '';
+                    document.getElementById('detail-user-email').value = user.email || '';
+                    document.getElementById('detail-user-role').value = user.role || '';
+                    document.getElementById('detail-user-status').value = user.status || 'active';
+                    document.getElementById('detail-user-department').value = user.department || '';
+                    document.getElementById('detail-user-notes').value = user.notes || '';
+                    document.getElementById('detail-last-login').textContent = user.last_login ? new Date(user.last_login).toLocaleString('ja-JP') : '未ログイン';
+                    document.getElementById('detail-created-at').textContent = new Date(user.created_at).toLocaleString('ja-JP');
+
+                    if (user.avatar_url) {
+                        document.getElementById('detail-user-avatar').src = user.avatar_url;
+                    }
+
+                    // 権限設定（簡略化）
+                    this.setPermissionsByRole(user.role);
+
+                    // モーダル表示
+                    document.getElementById('user-detail-modal').classList.remove('hidden');
+                    document.body.classList.add('overflow-hidden');
+
+                } catch (error) {
+                    console.error('ユーザー編集エラー:', error);
+                    alert('ユーザー情報の取得に失敗しました。');
+                }
+            }
+
+            // 権限を役割に基づいて設定
+            setPermissionsByRole(role) {
+                const permissions = {
+                    admin: ['contacts-view', 'contacts-edit', 'contacts-delete', 'users-view', 'users-edit', 'settings-view', 'settings-edit', 'reports-view', 'logs-view'],
+                    manager: ['contacts-view', 'contacts-edit', 'users-view', 'settings-view', 'reports-view'],
+                    operator: ['contacts-view', 'contacts-edit'],
+                    viewer: ['contacts-view', 'reports-view']
+                };
+
+                // 全権限をリセット
+                document.querySelectorAll('[id^="perm-"]').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+
+                // 役割に応じた権限を設定
+                const rolePermissions = permissions[role] || [];
+                rolePermissions.forEach(perm => {
+                    const checkbox = document.getElementById(`perm-${perm}`);
+                    if (checkbox) checkbox.checked = true;
+                });
+            }
+
+            // ユーザー詳細モーダル閉じる
+            closeUserDetailModal() {
+                document.getElementById('user-detail-modal').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                this.currentEditUserId = null;
+            }
+
+            // ユーザー変更保存
+            async saveUserChanges() {
+                if (!this.currentEditUserId) return;
+
+                try {
+                    const name = document.getElementById('detail-user-name').value;
+                    const email = document.getElementById('detail-user-email').value;
+                    const role = document.getElementById('detail-user-role').value;
+                    const status = document.getElementById('detail-user-status').value;
+                    const department = document.getElementById('detail-user-department').value;
+                    const notes = document.getElementById('detail-user-notes').value;
+
+                    const { error } = await this.supabaseClient
+                        .from('app_users')
+                        .update({
+                            name: name,
+                            email: email,
+                            role: role,
+                            status: status,
+                            department: department,
+                            notes: notes,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', this.currentEditUserId);
+
+                    if (error) throw error;
+
+                    alert('ユーザー情報を更新しました。');
+                    this.closeUserDetailModal();
+                    this.loadUsers();
+                    this.loadUserStats();
+
+                } catch (error) {
+                    console.error('ユーザー更新エラー:', error);
+                    alert('ユーザー情報の更新に失敗しました。');
+                }
+            }
+
+            // ユーザーステータス切り替え
+            async toggleUserStatus(userId, currentStatus) {
+                const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+                const action = newStatus === 'active' ? '有効化' : '無効化';
+                
+                if (!confirm(`このユーザーを${action}しますか？`)) return;
+
+                try {
+                    const { error } = await this.supabaseClient
+                        .from('app_users')
+                        .update({ 
+                            status: newStatus,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', userId);
+
+                    if (error) throw error;
+
+                    alert(`ユーザーを${action}しました。`);
+                    this.loadUsers();
+                    this.loadUserStats();
+
+                } catch (error) {
+                    console.error('ステータス更新エラー:', error);
+                    alert(`ユーザーの${action}に失敗しました。`);
+                }
+            }
+
+            // パスワードリセット
+            async resetUserPassword() {
+                if (!this.currentEditUserId) return;
+
+                if (!confirm('このユーザーのパスワードをリセットしますか？\n新しいパスワードがメールで送信されます。')) return;
+
+                try {
+                    const email = document.getElementById('detail-user-email').value;
+                    
+                    const { error } = await this.supabaseClient.auth.resetPasswordForEmail(email);
+                    if (error) throw error;
+
+                    alert('パスワードリセットメールを送信しました。');
+
+                } catch (error) {
+                    console.error('パスワードリセットエラー:', error);
+                    alert('パスワードリセットに失敗しました。');
+                }
+            }
+
+            // ユーザー削除
+            async deleteUser() {
+                if (!this.currentEditUserId) return;
+
+                const userName = document.getElementById('detail-user-name').value;
+                if (!confirm(`ユーザー「${userName}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+
+                try {
+                    // app_usersテーブルから削除
+                    const { error: dbError } = await this.supabaseClient
+                        .from('app_users')
+                        .delete()
+                        .eq('id', this.currentEditUserId);
+
+                    if (dbError) throw dbError;
+
+                    // Supabase Authからも削除（管理者権限が必要）
+                    const { error: authError } = await this.supabaseClient.auth.admin.deleteUser(this.currentEditUserId);
+                    if (authError) console.warn('Auth削除エラー:', authError);
+
+                    alert('ユーザーを削除しました。');
+                    this.closeUserDetailModal();
+                    this.loadUsers();
+                    this.loadUserStats();
+
+                } catch (error) {
+                    console.error('ユーザー削除エラー:', error);
+                    alert('ユーザーの削除に失敗しました。');
+                }
+            }
+
+            // アバターアップロード
+            async handleAvatarUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('ファイルサイズは2MB以下にしてください。');
+                    return;
+                }
+
+                try {
+                    const fileName = `avatar_${this.currentEditUserId}_${Date.now()}.${file.name.split('.').pop()}`;
+                    const { data, error } = await this.supabaseClient.storage
+                        .from('avatars')
+                        .upload(fileName, file);
+
+                    if (error) throw error;
+
+                    const { data: { publicUrl } } = this.supabaseClient.storage
+                        .from('avatars')
+                        .getPublicUrl(fileName);
+
+                    // データベースのアバターURLを更新
+                    const { error: updateError } = await this.supabaseClient
+                        .from('app_users')
+                        .update({ avatar_url: publicUrl })
+                        .eq('id', this.currentEditUserId);
+
+                    if (updateError) throw updateError;
+
+                    // 画像を更新
+                    document.getElementById('detail-user-avatar').src = publicUrl;
+                    alert('アバターを更新しました。');
+
+                } catch (error) {
+                    console.error('アバターアップロードエラー:', error);
+                    alert('アバターのアップロードに失敗しました。');
+                }
+            }
+
+            // ページネーション
+            previousPage() {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.loadUsers();
+                }
+            }
+
+            nextPage() {
+                const totalPages = Math.ceil(this.totalItems / this.itemsPerPage);
+                if (this.currentPage < totalPages) {
+                    this.currentPage++;
+                    this.loadUsers();
+                }
+            }
+
+            firstPage() {
+                this.currentPage = 1;
+                this.loadUsers();
+            }
+
+            lastPage() {
+                this.currentPage = Math.ceil(this.totalItems / this.itemsPerPage);
+                this.loadUsers();
+            }
+
+            // ページネーション更新
+            updatePagination() {
+                const totalPages = Math.ceil(this.totalItems / this.itemsPerPage);
+                const start = Math.max(1, (this.currentPage - 1) * this.itemsPerPage + 1);
+                const end = Math.min(this.currentPage * this.itemsPerPage, this.totalItems);
+
+                document.getElementById('total-items').textContent = this.totalItems;
+                document.getElementById('start-item').textContent = start;
+                document.getElementById('end-item').textContent = end;
+                document.getElementById('current-page').textContent = this.currentPage;
+                document.getElementById('total-pages').textContent = totalPages;
+
+                // ボタンの状態更新
+                document.getElementById('prev-page').disabled = this.currentPage === 1;
+                document.getElementById('next-page').disabled = this.currentPage >= totalPages;
+                document.getElementById('first-page').disabled = this.currentPage === 1;
+                document.getElementById('last-page').disabled = this.currentPage >= totalPages;
+            }
+
+            // ローディング表示
+            showLoading(isLoading) {
+                const tbody = document.getElementById('users-table-body');
+                if (isLoading && tbody.children.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>読み込み中...
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // ログアウト
+            async handleLogout() {
+                try {
+                    const { error } = await this.supabaseClient.auth.signOut();
+                    if (error) throw error;
+                    window.location.href = '../login.html';
+                } catch (error) {
+                    console.error('ログアウトエラー:', error);
+                    alert('ログアウトに失敗しました。');
+                }
+            }
+
+            // HTMLエスケープ
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // アプリケーション初期化
+        const userApp = new UserManagementApp();
+        window.addEventListener('load', () => {
+            userApp.initialize();
+        });
+
+        // グローバル関数
+        window.userApp = userApp;
+    </script>
+</body>
+</html>

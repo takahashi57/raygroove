@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バックアップ管理 - お問い合わせ管理システム</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .backup-card {
+            transition: all 0.3s ease;
+        }
+        .backup-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .status-indicator {
+            position: relative;
+        }
+        .status-indicator::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -10px;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .status-success::before {
+            background-color: #10b981;
+        }
+        .status-running::before {
+            background-color: #f59e0b;
+        }
+        .status-error::before {
+            background-color: #ef4444;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .cloud-upload-zone {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+        .cloud-upload-zone:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .cloud-upload-zone.dragover {
+            border-color: #1d4ed8;
+            background-color: #dbeafe;
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- エラー通知バナー -->
+    <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-2 text-center z-50">
+        <span id="error-message"></span>
+        <button onclick="hideErrorBanner()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- 成功通知バナー -->
+    <div id="success-banner" class="hidden fixed top-0 left-0 right-0 bg-green-500 text-white px-4 py-2 text-center z-50">
+        <span id="success-message"></span>
+        <button onclick="hideSuccessBanner()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div class="flex h-screen">
+        <!-- サイドバー -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">管理画面</h1>
+                <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
+            </div>
+            <nav class="mt-4">
+                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-tachometer-alt mr-3"></i> ダッシュボード
+                </a>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    システム管理
+                </div>
+                <a href="../logs/access.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-chart-line mr-3"></i> アクセスログ
+                </a>
+                <a href="../logs/actions.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-history mr-3"></i> 操作ログ
+                </a>
+                <a href="index.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
+                    <i class="fas fa-hdd mr-3"></i> バックアップ
+                </a>
+                <a href="../api/keys.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-key mr-3"></i> API管理
+                </a>
+                <a href="../help/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-question-circle mr-3"></i> ヘルプ
+                </a>
+            </nav>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">
+                            <i class="fas fa-hdd mr-3 text-indigo-600"></i>バックアップ管理
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">データベースのバックアップ・復元を管理します</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="user-email" class="text-sm text-gray-600">読み込み中...</span>
+                        <div id="last-updated" class="text-xs text-gray-500"></div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <!-- バックアップ統計カード -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- 総バックアップ数 -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg backup-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                    <i class="fas fa-archive text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">総バックアップ数</dt>
+                                        <dd class="text-2xl font-semibold text-gray-900" id="total-backups">
+                                            <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最新バックアップ -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg backup-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                    <i class="fas fa-clock text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">最新バックアップ</dt>
+                                        <dd class="text-sm font-semibold text-gray-900" id="latest-backup">
+                                            読み込み中...
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 総容量 -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg backup-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                    <i class="fas fa-database text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">総容量</dt>
+                                        <dd class="text-2xl font-semibold text-gray-900" id="total-size">
+                                            <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 自動バックアップ状態 -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg backup-card">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                                    <i class="fas fa-cogs text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">自動バックアップ</dt>
+                                        <dd class="text-sm font-semibold" id="auto-backup-status">
+                                            <span class="status-indicator status-success pl-3 text-green-600">有効</span>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- バックアップ操作パネル -->
+                <div class="bg-white shadow rounded-lg p-6 mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-medium text-gray-900">
+                            <i class="fas fa-tools mr-2 text-indigo-600"></i>バックアップ操作
+                        </h3>
+                        <div class="flex space-x-3">
+                            <button id="refresh-backup-list" class="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors duration-200">
+                                <i class="fas fa-sync mr-2"></i>更新
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 手動バックアップ -->
+                        <div class="border rounded-lg p-4">
+                            <h4 class="text-md font-medium text-gray-900 mb-3">
+                                <i class="fas fa-play-circle mr-2 text-blue-600"></i>手動バックアップ
+                            </h4>
+                            <p class="text-sm text-gray-600 mb-4">現在のデータベース状態を今すぐバックアップします。</p>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">バックアップ名</label>
+                                    <input type="text" id="manual-backup-name" placeholder="manual_backup_YYYYMMDD" 
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="include-logs" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                        <span class="ml-2 text-sm text-gray-700">ログデータを含める</span>
+                                    </label>
+                                </div>
+                                <button id="create-manual-backup" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200">
+                                    <i class="fas fa-download mr-2"></i>バックアップ実行
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 自動バックアップ設定 -->
+                        <div class="border rounded-lg p-4">
+                            <h4 class="text-md font-medium text-gray-900 mb-3">
+                                <i class="fas fa-calendar-alt mr-2 text-green-600"></i>自動バックアップ
+                            </h4>
+                            <p class="text-sm text-gray-600 mb-4">定期的な自動バックアップのスケジュールを設定します。</p>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">頻度</label>
+                                    <select id="backup-frequency" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="daily">毎日</option>
+                                        <option value="weekly">毎週</option>
+                                        <option value="monthly">毎月</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">実行時刻</label>
+                                    <input type="time" id="backup-time" value="02:00" 
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">保持期間（日）</label>
+                                    <input type="number" id="retention-days" value="30" min="1" max="365"
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <button id="save-schedule" class="w-full px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors duration-200">
+                                    <i class="fas fa-save mr-2"></i>スケジュール保存
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- クラウドストレージ連携 -->
+                        <div class="border rounded-lg p-4">
+                            <h4 class="text-md font-medium text-gray-900 mb-3">
+                                <i class="fas fa-cloud mr-2 text-purple-600"></i>クラウド連携
+                            </h4>
+                            <p class="text-sm text-gray-600 mb-4">外部クラウドストレージとの連携設定を行います。</p>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">連携先</label>
+                                    <select id="cloud-provider" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="">選択してください</option>
+                                        <option value="aws-s3">Amazon S3</option>
+                                        <option value="google-cloud">Google Cloud Storage</option>
+                                        <option value="azure">Azure Blob Storage</option>
+                                    </select>
+                                </div>
+                                <div id="cloud-config" class="hidden space-y-2">
+                                    <input type="text" id="cloud-bucket" placeholder="バケット名/コンテナ名" 
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <input type="password" id="cloud-access-key" placeholder="アクセスキー" 
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <button id="test-cloud-connection" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition-colors duration-200">
+                                    <i class="fas fa-plug mr-2"></i>接続テスト
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- バックアップ一覧 -->
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900">
+                                    <i class="fas fa-list mr-2 text-indigo-600"></i>バックアップ履歴
+                                </h3>
+                                <p class="mt-1 text-sm text-gray-600">作成されたバックアップファイルの一覧と管理</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <input type="text" id="backup-search" placeholder="バックアップ名で検索..." 
+                                       class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <select id="backup-filter" class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">すべて</option>
+                                    <option value="manual">手動</option>
+                                    <option value="auto">自動</option>
+                                    <option value="scheduled">スケジュール</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- デスクトップ用テーブル -->
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        バックアップ名
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        作成日時
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        タイプ
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        サイズ
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ステータス
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        操作
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="backup-table-body" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>バックアップ情報を読み込んでいます...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- モバイル用カード表示 -->
+                    <div class="md:hidden" id="mobile-backup-list">
+                        <div class="p-4 text-center text-sm text-gray-500">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>バックアップ情報を読み込んでいます...
+                        </div>
+                    </div>
+
+                    <!-- ページネーション -->
+                    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                        <div class="flex-1 flex justify-between sm:hidden">
+                            <button id="prev-page-mobile" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                前へ
+                            </button>
+                            <button id="next-page-mobile" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                次へ
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    全 <span id="total-backup-items">0</span> 件中
+                                    <span id="start-backup-item">0</span> - <span id="end-backup-item">0</span> 件を表示
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <button id="first-backup-page" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </button>
+                                    <button id="prev-backup-page" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <div id="backup-page-numbers" class="flex">
+                                        <!-- ページ番号がここに挿入されます -->
+                                    </div>
+                                    <button id="next-backup-page" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                    <button id="last-backup-page" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- バックアップ詳細モーダル -->
+    <div id="backup-detail-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">
+                    <i class="fas fa-info-circle mr-2 text-indigo-600"></i>バックアップ詳細
+                </h3>
+                <button id="close-backup-modal" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="mt-6" id="backup-detail-content">
+                <!-- バックアップ詳細情報がここに表示される -->
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="download-backup" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
+                    <i class="fas fa-download mr-2"></i>ダウンロード
+                </button>
+                <button id="restore-backup" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">
+                    <i class="fas fa-upload mr-2"></i>復元
+                </button>
+                <button id="delete-backup" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700">
+                    <i class="fas fa-trash mr-2"></i>削除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 復元確認モーダル -->
+    <div id="restore-confirm-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">バックアップの復元</h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    現在のデータは完全に置き換えられます。<br>
+                    この操作は元に戻すことができません。
+                </p>
+                <div class="flex justify-center space-x-3">
+                    <button id="cancel-restore" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    <button id="confirm-restore" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700">
+                        復元実行
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BackupManager {
+            constructor() {
+                this.supabaseClient = null;
+                this.currentUser = null;
+                this.backups = [];
+                this.currentPage = 1;
+                this.itemsPerPage = 10;
+                this.totalItems = 0;
+                this.currentFilters = {
+                    search: '',
+                    type: ''
+                };
+                this.selectedBackupId = null;
+                
+                // サンプルデータ（実際の実装ではSupabaseから取得）
+                this.sampleBackups = [
+                    {
+                        id: '1',
+                        name: 'manual_backup_20241201',
+                        created_at: '2024-12-01T10:30:00Z',
+                        type: 'manual',
+                        size: 2547892,
+                        status: 'completed',
+                        tables_included: ['contacts', 'users', 'action_logs'],
+                        compression: 'gzip',
+                        storage_location: 'local'
+                    },
+                    {
+                        id: '2',
+                        name: 'auto_backup_20241130',
+                        created_at: '2024-11-30T02:00:00Z',
+                        type: 'auto',
+                        size: 1847592,
+                        status: 'completed',
+                        tables_included: ['contacts', 'users'],
+                        compression: 'gzip',
+                        storage_location: 'aws-s3'
+                    },
+                    {
+                        id: '3',
+                        name: 'scheduled_backup_20241129',
+                        created_at: '2024-11-29T02:00:00Z',
+                        type: 'scheduled',
+                        size: 1923847,
+                        status: 'completed',
+                        tables_included: ['contacts', 'users', 'action_logs'],
+                        compression: 'gzip',
+                        storage_location: 'local'
+                    }
+                ];
+            }
+
+            async initialize() {
+                try {
+                    // Supabase初期化（実際の実装）
+                    await this.initializeSupabase();
+                    
+                    // イベントリスナー設定
+                    this.setupEventListeners();
+                    
+                    // データ読み込み
+                    await this.loadBackupData();
+                    
+                    // 最終更新時刻を表示
+                    this.updateLastUpdated();
+                    
+                    console.log('✅ バックアップ管理システム初期化完了');
+                    
+                } catch (error) {
+                    console.error('❌ 初期化エラー:', error);
+                    this.showError('システムの初期化に失敗しました。');
+                }
+            }
+
+            async initializeSupabase() {
+                // Supabase初期化（省略 - 実際の実装では既存のコードを使用）
+                console.log('Supabase初期化をスキップ（デモ用）');
+            }
+
+            setupEventListeners() {
+                // 手動バックアップ
+                document.getElementById('create-manual-backup').addEventListener('click', () => this.createManualBackup());
+                
+                // スケジュール保存
+                document.getElementById('save-schedule').addEventListener('click', () => this.saveSchedule());
+                
+                // クラウド接続テスト
+                document.getElementById('test-cloud-connection').addEventListener('click', () => this.testCloudConnection());
+                
+                // 検索・フィルター
+                const searchInput = document.getElementById('backup-search');
+                let searchTimeout;
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        this.currentFilters.search = e.target.value;
+                        this.currentPage = 1;
+                        this.renderBackups();
+                    }, 500);
+                });
+
+                document.getElementById('backup-filter').addEventListener('change', (e) => {
+                    this.currentFilters.type = e.target.value;
+                    this.currentPage = 1;
+                    this.renderBackups();
+                });
+
+                // クラウドプロバイダー選択
+                document.getElementById('cloud-provider').addEventListener('change', (e) => {
+                    const configDiv = document.getElementById('cloud-config');
+                    if (e.target.value) {
+                        configDiv.classList.remove('hidden');
+                    } else {
+                        configDiv.classList.add('hidden');
+                    }
+                });
+
+                // モーダル関連
+                document.getElementById('close-backup-modal').addEventListener('click', () => this.closeBackupModal());
+                document.getElementById('download-backup').addEventListener('click', () => this.downloadBackup());
+                document.getElementById('restore-backup').addEventListener('click', () => this.showRestoreConfirm());
+                document.getElementById('delete-backup').addEventListener('click', () => this.deleteBackup());
+                
+                // 復元確認モーダル
+                document.getElementById('cancel-restore').addEventListener('click', () => this.closeRestoreModal());
+                document.getElementById('confirm-restore').addEventListener('click', () => this.executeRestore());
+
+                // 更新ボタン
+                document.getElementById('refresh-backup-list').addEventListener('click', () => this.loadBackupData());
+
+                // ページネーション
+                document.getElementById('prev-backup-page').addEventListener('click', () => this.previousPage());
+                document.getElementById('next-backup-page').addEventListener('click', () => this.nextPage());
+                document.getElementById('first-backup-page').addEventListener('click', () => this.firstPage());
+                document.getElementById('last-backup-page').addEventListener('click', () => this.lastPage());
+            }
+
+            async loadBackupData() {
+                try {
+                    // 実際の実装ではSupabaseから取得
+                    // const { data, error } = await this.supabaseClient.from('backups').select('*');
+                    
+                    // サンプルデータを使用
+                    this.backups = this.sampleBackups;
+                    this.totalItems = this.backups.length;
+                    
+                    this.renderBackups();
+                    this.updateBackupStats();
+                    this.updatePagination();
+                    
+                } catch (error) {
+                    console.error('バックアップ情報の読み込みエラー:', error);
+                    this.showError('バックアップ情報の読み込みに失敗しました。');
+                }
+            }
+
+            renderBackups() {
+                const tbody = document.getElementById('backup-table-body');
+                const mobileContainer = document.getElementById('mobile-backup-list');
+                
+                // フィルター適用
+                let filteredBackups = this.backups;
+                if (this.currentFilters.search) {
+                    filteredBackups = filteredBackups.filter(backup => 
+                        backup.name.toLowerCase().includes(this.currentFilters.search.toLowerCase())
+                    );
+                }
+                if (this.currentFilters.type) {
+                    filteredBackups = filteredBackups.filter(backup => backup.type === this.currentFilters.type);
+                }
+
+                // ページネーション適用
+                const start = (this.currentPage - 1) * this.itemsPerPage;
+                const end = start + this.itemsPerPage;
+                const pageBackups = filteredBackups.slice(start, end);
+
+                if (pageBackups.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                該当するバックアップはありません。
+                            </td>
+                        </tr>
+                    `;
+                    mobileContainer.innerHTML = `
+                        <div class="p-4 text-center text-sm text-gray-500">
+                            該当するバックアップはありません。
+                        </div>
+                    `;
+                    return;
+                }
+
+                // デスクトップ用テーブル
+                tbody.innerHTML = pageBackups.map(backup => `
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="app.viewBackupDetail('${backup.id}')">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">${this.escapeHtml(backup.name)}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${new Date(backup.created_at).toLocaleString('ja-JP')}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${this.getTypeBadge(backup.type)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${this.formatFileSize(backup.size)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${this.getStatusBadge(backup.status)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="event.stopPropagation(); app.viewBackupDetail('${backup.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); app.downloadBackup('${backup.id}')" class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); app.deleteBackup('${backup.id}')" class="text-red-600 hover:text-red-900">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                // モバイル用カード表示
+                mobileContainer.innerHTML = pageBackups.map(backup => `
+                    <div class="border-b border-gray-200 p-4 hover:bg-gray-50 cursor-pointer" onclick="app.viewBackupDetail('${backup.id}')">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-900">${this.escapeHtml(backup.name)}</h4>
+                            ${this.getStatusBadge(backup.status)}
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+                            <span>${new Date(backup.created_at).toLocaleDateString('ja-JP')}</span>
+                            <span>${this.formatFileSize(backup.size)}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            ${this.getTypeBadge(backup.type)}
+                            <div class="flex space-x-2">
+                                <button onclick="event.stopPropagation(); app.downloadBackup('${backup.id}')" class="text-blue-600 text-xs">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button onclick="event.stopPropagation(); app.deleteBackup('${backup.id}')" class="text-red-600 text-xs">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                this.totalItems = filteredBackups.length;
+                this.updatePagination();
+            }
+
+            updateBackupStats() {
+                document.getElementById('total-backups').textContent = this.backups.length;
+                
+                const latestBackup = this.backups.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+                if (latestBackup) {
+                    document.getElementById('latest-backup').textContent = new Date(latestBackup.created_at).toLocaleDateString('ja-JP');
+                }
+                
+                const totalSize = this.backups.reduce((sum, backup) => sum + backup.size, 0);
+                document.getElementById('total-size').textContent = this.formatFileSize(totalSize);
+            }
+
+            async createManualBackup() {
+                try {
+                    const backupName = document.getElementById('manual-backup-name').value || 
+                                      `manual_backup_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
+                    const includeLogs = document.getElementById('include-logs').checked;
+                    
+                    this.showSuccess('バックアップを開始しました...');
+                    
+                    // 実際の実装ではSupabaseのRPCまたはEdge Functionを使用
+                    await this.simulateBackupProcess();
+                    
+                    this.showSuccess('バックアップが正常に作成されました。');
+                    this.loadBackupData();
+                    
+                } catch (error) {
+                    console.error('手動バックアップエラー:', error);
+                    this.showError('バックアップの作成に失敗しました。');
+                }
+            }
+
+            async saveSchedule() {
+                try {
+                    const frequency = document.getElementById('backup-frequency').value;
+                    const time = document.getElementById('backup-time').value;
+                    const retentionDays = document.getElementById('retention-days').value;
+                    
+                    // 実際の実装ではcron jobやSupabaseのスケジュール機能を使用
+                    console.log('スケジュール設定:', { frequency, time, retentionDays });
+                    
+                    this.showSuccess('自動バックアップのスケジュールを保存しました。');
+                    
+                } catch (error) {
+                    console.error('スケジュール保存エラー:', error);
+                    this.showError('スケジュールの保存に失敗しました。');
+                }
+            }
+
+            async testCloudConnection() {
+                try {
+                    const provider = document.getElementById('cloud-provider').value;
+                    const bucket = document.getElementById('cloud-bucket').value;
+                    const accessKey = document.getElementById('cloud-access-key').value;
+                    
+                    if (!provider || !bucket || !accessKey) {
+                        this.showError('すべての項目を入力してください。');
+                        return;
+                    }
+                    
+                    // 実際の実装ではクラウドAPIへの接続テスト
+                    await this.simulateCloudConnection();
+                    
+                    this.showSuccess('クラウドストレージへの接続テストが成功しました。');
+                    
+                } catch (error) {
+                    console.error('クラウド接続テストエラー:', error);
+                    this.showError('クラウドストレージへの接続に失敗しました。');
+                }
+            }
+
+            viewBackupDetail(backupId) {
+                this.selectedBackupId = backupId;
+                const backup = this.backups.find(b => b.id === backupId);
+                
+                if (!backup) return;
+                
+                const detailContent = document.getElementById('backup-detail-content');
+                detailContent.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">バックアップ名</label>
+                                <p class="mt-1 text-sm text-gray-900">${this.escapeHtml(backup.name)}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">作成日時</label>
+                                <p class="mt-1 text-sm text-gray-900">${new Date(backup.created_at).toLocaleString('ja-JP')}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">タイプ</label>
+                                <p class="mt-1">${this.getTypeBadge(backup.type)}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">ファイルサイズ</label>
+                                <p class="mt-1 text-sm text-gray-900">${this.formatFileSize(backup.size)}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">ステータス</label>
+                                <p class="mt-1">${this.getStatusBadge(backup.status)}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">保存場所</label>
+                                <p class="mt-1 text-sm text-gray-900">${backup.storage_location}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">含まれるテーブル</label>
+                            <div class="mt-1 flex flex-wrap gap-2">
+                                ${backup.tables_included.map(table => `
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        ${table}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">圧縮形式</label>
+                            <p class="mt-1 text-sm text-gray-900">${backup.compression}</p>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('backup-detail-modal').classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            }
+
+            closeBackupModal() {
+                document.getElementById('backup-detail-modal').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                this.selectedBackupId = null;
+            }
+
+            showRestoreConfirm() {
+                document.getElementById('restore-confirm-modal').classList.remove('hidden');
+            }
+
+            closeRestoreModal() {
+                document.getElementById('restore-confirm-modal').classList.add('hidden');
+            }
+
+            async downloadBackup(backupId = null) {
+                try {
+                    const id = backupId || this.selectedBackupId;
+                    const backup = this.backups.find(b => b.id === id);
+                    
+                    if (!backup) return;
+                    
+                    // 実際の実装ではSupabase Storageからダウンロード
+                    this.showSuccess(`${backup.name} のダウンロードを開始しました。`);
+                    await this.simulateDownload();
+                    
+                } catch (error) {
+                    console.error('ダウンロードエラー:', error);
+                    this.showError('バックアップのダウンロードに失敗しました。');
+                }
+            }
+
+            async executeRestore() {
+                try {
+                    const backup = this.backups.find(b => b.id === this.selectedBackupId);
+                    
+                    if (!backup) return;
+                    
+                    this.closeRestoreModal();
+                    this.closeBackupModal();
+                    
+                    this.showSuccess('復元処理を開始しました...');
+                    
+                    // 実際の実装ではデータベース復元処理
+                    await this.simulateRestore();
+                    
+                    this.showSuccess('データベースの復元が完了しました。');
+                    
+                } catch (error) {
+                    console.error('復元エラー:', error);
+                    this.showError('データベースの復元に失敗しました。');
+                }
+            }
+
+            async deleteBackup(backupId = null) {
+                const id = backupId || this.selectedBackupId;
+                const backup = this.backups.find(b => b.id === id);
+                
+                if (!backup) return;
+                
+                if (!confirm(`バックアップ "${backup.name}" を削除しますか？`)) return;
+                
+                try {
+                    // 実際の実装ではSupabaseから削除
+                    this.backups = this.backups.filter(b => b.id !== id);
+                    
+                    this.showSuccess('バックアップを削除しました。');
+                    this.loadBackupData();
+                    
+                    if (this.selectedBackupId === id) {
+                        this.closeBackupModal();
+                    }
+                    
+                } catch (error) {
+                    console.error('削除エラー:', error);
+                    this.showError('バックアップの削除に失敗しました。');
+                }
+            }
+
+            // ページネーション関連メソッド
+            previousPage() {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.renderBackups();
+                }
+            }
+
+            nextPage() {
+                const totalPages = Math.ceil(this.totalItems / this.itemsPerPage);
+                if (this.currentPage < totalPages) {
+                    this.currentPage++;
+                    this.renderBackups();
+                }
+            }
+
+            firstPage() {
+                this.currentPage = 1;
+                this.renderBackups();
+            }
+
+            lastPage() {
+                this.currentPage = Math.ceil(this.totalItems / this.itemsPerPage);
+                this.renderBackups();
+            }
+
+            updatePagination() {
+                const totalPages = Math.ceil(this.totalItems / this.itemsPerPage);
+                const start = Math.max(1, (this.currentPage - 1) * this.itemsPerPage + 1);
+                const end = Math.min(this.currentPage * this.itemsPerPage, this.totalItems);
+
+                document.getElementById('total-backup-items').textContent = this.totalItems;
+                document.getElementById('start-backup-item').textContent = start;
+                document.getElementById('end-backup-item').textContent = end;
+
+                const prevButtons = [document.getElementById('prev-backup-page')];
+                const nextButtons = [document.getElementById('next-backup-page')];
+                
+                prevButtons.forEach(btn => {
+                    if (btn) btn.disabled = this.currentPage === 1;
+                });
+                
+                nextButtons.forEach(btn => {
+                    if (btn) btn.disabled = this.currentPage >= totalPages;
+                });
+
+                const firstBtn = document.getElementById('first-backup-page');
+                const lastBtn = document.getElementById('last-backup-page');
+                if (firstBtn) firstBtn.disabled = this.currentPage === 1;
+                if (lastBtn) lastBtn.disabled = this.currentPage >= totalPages;
+            }
+
+            // シミュレーション関数（実際の実装では削除）
+            async simulateBackupProcess() {
+                return new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
+            async simulateCloudConnection() {
+                return new Promise(resolve => setTimeout(resolve, 1500));
+            }
+
+            async simulateDownload() {
+                return new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            async simulateRestore() {
+                return new Promise(resolve => setTimeout(resolve, 3000));
+            }
+
+            // ユーティリティ関数
+            getTypeBadge(type) {
+                const typeMap = {
+                    'manual': { text: '手動', color: 'bg-blue-100 text-blue-800' },
+                    'auto': { text: '自動', color: 'bg-green-100 text-green-800' },
+                    'scheduled': { text: 'スケジュール', color: 'bg-purple-100 text-purple-800' }
+                };
+                
+                const typeInfo = typeMap[type] || { text: type, color: 'bg-gray-100 text-gray-800' };
+                return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${typeInfo.color}">
+                    ${typeInfo.text}
+                </span>`;
+            }
+
+            getStatusBadge(status) {
+                const statusMap = {
+                    'completed': { text: '完了', color: 'bg-green-100 text-green-800' },
+                    'running': { text: '実行中', color: 'bg-yellow-100 text-yellow-800' },
+                    'failed': { text: 'エラー', color: 'bg-red-100 text-red-800' }
+                };
+                
+                const statusInfo = statusMap[status] || { text: status, color: 'bg-gray-100 text-gray-800' };
+                return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusInfo.color}">
+                    ${statusInfo.text}
+                </span>`;
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            updateLastUpdated() {
+                const lastUpdated = document.getElementById('last-updated');
+                if (lastUpdated) {
+                    lastUpdated.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP')}`;
+                }
+            }
+
+            showError(message) {
+                const errorBanner = document.getElementById('error-banner');
+                const errorMessage = document.getElementById('error-message');
+                errorMessage.textContent = message;
+                errorBanner.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    errorBanner.classList.add('hidden');
+                }, 5000);
+            }
+
+            showSuccess(message) {
+                const successBanner = document.getElementById('success-banner');
+                const successMessage = document.getElementById('success-message');
+                successMessage.textContent = message;
+                successBanner.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    successBanner.classList.add('hidden');
+                }, 3000);
+            }
+        }
+
+        // アプリケーションインスタンスを作成
+        const app = new BackupManager();
+
+        // ページロード時の初期化
+        window.addEventListener('load', () => {
+            app.initialize();
+        });
+
+        // グローバル関数として公開
+        window.hideErrorBanner = () => {
+            document.getElementById('error-banner').classList.add('hidden');
+        };
+        
+        window.hideSuccessBanner = () => {
+            document.getElementById('success-banner').classList.add('hidden');
+        };
+    </script>
+</body>
+</html>

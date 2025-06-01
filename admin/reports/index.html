@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>レポート・分析 - お問い合わせ管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* レポート専用スタイル */
+        .report-card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .report-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .widget-container {
+            min-height: 300px;
+            border: 2px dashed #e5e7eb;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .widget-container:hover {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+        .widget-container.filled {
+            border-style: solid;
+            border-color: #d1d5db;
+        }
+        
+        .draggable-widget {
+            cursor: move;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .draggable-widget:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .draggable-widget.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+        
+        .kpi-metric {
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-metric::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        .kpi-metric:hover::before {
+            transform: translateX(100%);
+        }
+        
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .trend-up {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .trend-down {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .trend-stable {
+            background-color: #e0e7ff;
+            color: #3730a3;
+        }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+        }
+        .chart-container.small {
+            height: 250px;
+        }
+        .chart-container.large {
+            height: 600px;
+        }
+        
+        .date-range-picker {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            background: white;
+        }
+        
+        .export-button {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .export-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+        }
+        
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin: 0.25rem;
+            transition: all 0.2s ease;
+        }
+        .filter-chip:hover {
+            background-color: #dbeafe;
+        }
+        .filter-chip .remove {
+            margin-left: 0.5rem;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        .filter-chip .remove:hover {
+            opacity: 1;
+        }
+        
+        .schedule-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .schedule-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+        }
+        .schedule-item.active {
+            border-color: #10b981;
+            background-color: #f0fdf4;
+        }
+        .schedule-item.error {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+        }
+        
+        .tab-button {
+            transition: all 0.2s ease;
+        }
+        .tab-button.active {
+            background: white;
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
+        .chart-period-btn {
+            padding: 0.25rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background: white;
+            color: #6b7280;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .chart-period-btn:hover {
+            background: #f9fafb;
+        }
+        .chart-period-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .report-card {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+        }
+        
+        /* アニメーション */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .slide-in-right {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* カスタムスクロールバー */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- エラー通知バナー -->
+    <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-2 text-center z-50">
+        <span id="error-message"></span>
+        <button onclick="hideErrorBanner()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div class="flex h-screen">
+        <!-- サイドバー -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">管理画面</h1>
+                <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
+            </div>
+            <nav class="mt-4">
+                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-inbox mr-3"></i> ダッシュボード
+                </a>
+                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-envelope mr-3"></i> お問い合わせ一覧
+                </a>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">システム管理</div>
+                <a href="../logs/access.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-chart-line mr-3"></i> アクセスログ
+                </a>
+                <a href="../logs/actions.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-clipboard-list mr-3"></i> 操作ログ
+                </a>
+                <a href="../backup/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-database mr-3"></i> バックアップ
+                </a>
+                <a href="../api/keys.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-key mr-3"></i> API管理
+                </a>
+                <a href="../notifications/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-bell mr-3"></i> 通知システム
+                </a>
+                <a href="index.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
+                    <i class="fas fa-chart-bar mr-3"></i> レポート・分析
+                </a>
+                <a href="../help/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-question-circle mr-3"></i> ヘルプ
+                </a>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">設定</div>
+                <a href="../settings/general.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-cog mr-3"></i> 基本設定
+                </a>
+                <a href="../settings/email.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-envelope-open mr-3"></i> メール設定
+                </a>
+                <a href="../users/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-users mr-3"></i> ユーザー管理
+                </a>
+                <a href="#" id="logout-btn" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-sign-out-alt mr-3"></i> ログアウト
+                </a>
+            </nav>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            <i class="fas fa-chart-bar text-indigo-600 mr-2"></i>レポート・分析
+                        </h2>
+                        <div class="date-range-picker">
+                            <i class="fas fa-calendar text-gray-400"></i>
+                            <input type="date" id="date-from" class="border-none text-sm focus:outline-none">
+                            <span class="text-gray-400">-</span>
+                            <input type="date" id="date-to" class="border-none text-sm focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="user-email" class="text-sm text-gray-600">読み込み中...</span>
+                        <div id="last-updated" class="text-xs text-gray-500"></div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <!-- タブナビゲーション -->
+                <div class="bg-white shadow rounded-lg mb-6">
+                    <div class="border-b border-gray-200">
+                        <nav class="-mb-px flex space-x-8 px-6">
+                            <button id="tab-overview" class="tab-button active py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-tachometer-alt mr-2"></i>概要
+                            </button>
+                            <button id="tab-dashboard" class="tab-button py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-th-large mr-2"></i>カスタムダッシュボード
+                            </button>
+                            <button id="tab-kpi" class="tab-button py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-bullseye mr-2"></i>KPI分析
+                            </button>
+                            <button id="tab-reports" class="tab-button py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-file-alt mr-2"></i>定期レポート
+                            </button>
+                            <button id="tab-advanced" class="tab-button py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-brain mr-2"></i>高度分析
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- 概要タブ -->
+                    <div id="content-overview" class="tab-content active p-6">
+                        <!-- KPIメトリクス -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div class="kpi-metric">
+                                <div class="text-3xl font-bold mb-2" id="total-contacts">1,247</div>
+                                <div class="text-sm opacity-90">総お問い合わせ数</div>
+                                <div class="trend-indicator trend-up mt-2" id="contacts-trend">
+                                    <i class="fas fa-arrow-up mr-1"></i>+12.5%
+                                </div>
+                            </div>
+                            
+                            <div class="kpi-metric">
+                                <div class="text-3xl font-bold mb-2" id="avg-response-time">18.5h</div>
+                                <div class="text-sm opacity-90">平均対応時間</div>
+                                <div class="trend-indicator trend-down mt-2" id="response-trend">
+                                    <i class="fas fa-arrow-down mr-1"></i>-8.3%
+                                </div>
+                            </div>
+                            
+                            <div class="kpi-metric">
+                                <div class="text-3xl font-bold mb-2" id="satisfaction-rate">4.2/5.0</div>
+                                <div class="text-sm opacity-90">顧客満足度</div>
+                                <div class="trend-indicator trend-up mt-2" id="satisfaction-trend">
+                                    <i class="fas fa-arrow-up mr-1"></i>+3.2%
+                                </div>
+                            </div>
+                            
+                            <div class="kpi-metric">
+                                <div class="text-3xl font-bold mb-2" id="resolution-rate">94.3%</div>
+                                <div class="text-sm opacity-90">解決率</div>
+                                <div class="trend-indicator trend-stable mt-2" id="resolution-trend">
+                                    <i class="fas fa-minus mr-1"></i>±0.0%
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- チャート -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                            <div class="report-card p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-lg font-medium text-gray-900">お問い合わせ推移</h3>
+                                    <div class="flex space-x-2">
+                                        <button class="chart-period-btn active" data-period="7">7日</button>
+                                        <button class="chart-period-btn" data-period="30">30日</button>
+                                        <button class="chart-period-btn" data-period="90">90日</button>
+                                    </div>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="contacts-trend-chart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="report-card p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-lg font-medium text-gray-900">ステータス分布</h3>
+                                    <button id="status-chart-refresh" class="text-sm text-indigo-600 hover:text-indigo-800">
+                                        <i class="fas fa-sync mr-1"></i>更新
+                                    </button>
+                                </div>
+                                <div class="chart-container small">
+                                    <canvas id="status-distribution-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- トップパフォーマンス -->
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="report-card p-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">
+                                    <i class="fas fa-star text-yellow-500 mr-2"></i>トップ対応者
+                                </h3>
+                                <div id="top-performers" class="space-y-3">
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">1</div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900">田中管理者</div>
+                                                <div class="text-xs text-gray-500">45件対応</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-xs text-green-600">+12%</div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">2</div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900">佐藤編集者</div>
+                                                <div class="text-xs text-gray-500">38件対応</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-xs text-green-600">+8%</div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">3</div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900">山田編集者</div>
+                                                <div class="text-xs text-gray-500">32件対応</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-xs text-red-600">-2%</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="report-card p-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">
+                                    <i class="fas fa-tags text-blue-500 mr-2"></i>人気のカテゴリ
+                                </h3>
+                                <div id="popular-categories" class="space-y-3">
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-700">一般問い合わせ</span>
+                                            <span class="text-sm font-medium text-gray-900">156件</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-600 h-2 rounded-full" style="width: 45%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-700">サポート</span>
+                                            <span class="text-sm font-medium text-gray-900">89件</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-600 h-2 rounded-full" style="width: 26%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-700">業務提携</span>
+                                            <span class="text-sm font-medium text-gray-900">67件</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-600 h-2 rounded-full" style="width: 19%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="report-card p-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">
+                                    <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>注意が必要
+                                </h3>
+                                <div id="attention-needed" class="space-y-3">
+                                    <div class="flex items-center p-3 bg-gray-50 rounded-md">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-clock text-yellow-500"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm text-gray-900">24時間以上未対応: 12件</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center p-3 bg-gray-50 rounded-md">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-exclamation-triangle text-red-500"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm text-gray-900">高優先度未対応: 3件</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center p-3 bg-gray-50 rounded-md">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-server text-blue-500"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm text-gray-900">API制限接近中</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 他のタブコンテンツ -->
+                    <div id="content-dashboard" class="tab-content p-6">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-th-large text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium mb-2">カスタムダッシュボード</h3>
+                            <p>ウィジェットをドラッグ&ドロップして独自のダッシュボードを作成できます</p>
+                        </div>
+                    </div>
+
+                    <div id="content-kpi" class="tab-content p-6">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-bullseye text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium mb-2">KPI分析</h3>
+                            <p>重要業績指標の詳細分析と傾向把握機能を準備中です</p>
+                        </div>
+                    </div>
+
+                    <div id="content-reports" class="tab-content p-6">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-file-alt text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium mb-2">定期レポート</h3>
+                            <p>自動生成される定期レポートの管理と配信設定機能を準備中です</p>
+                        </div>
+                    </div>
+
+                    <div id="content-advanced" class="tab-content p-6">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-brain text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium mb-2">高度分析</h3>
+                            <p>機械学習を活用した予測分析と顧客インサイト機能を準備中です</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- CDNライブラリの読み込み（順序重要） -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <script>
+        // レポートシステム管理クラス
+        class ReportSystemApp {
+            constructor() {
+                this.supabaseClient = null;
+                this.currentUser = null;
+                this.currentTab = 'overview';
+                this.charts = {};
+                this.isInitialized = false;
+                
+                console.log('ReportSystemApp クラスが作成されました');
+            }
+
+            // Supabase初期化（簡略版）
+            async initializeSupabase() {
+                try {
+                    // 実際の環境では適切なURLとキーを設定
+                    const SUPABASE_URL = 'https://your-project.supabase.co';
+                    const SUPABASE_ANON_KEY = 'your-anon-key';
+
+                    console.log('Supabase初期化をシミュレート中...');
+                    
+                    // デモ用の疑似ユーザー設定
+                    this.currentUser = { email: 'demo@example.com' };
+                    document.getElementById('user-email').textContent = this.currentUser.email;
+                    
+                    console.log('✅ Supabase初期化成功 (デモモード)');
+                    return true;
+                } catch (error) {
+                    console.error('❌ Supabase初期化エラー:', error);
+                    this.showError(`初期化に失敗しました: ${error.message}`);
+                    return false;
+                }
+            }
+
+            // アプリケーション初期化
+            async initialize() {
+                try {
+                    console.log('アプリケーション初期化開始...');
+                    
+                    // Supabase初期化
+                    const success = await this.initializeSupabase();
+                    if (!success) return;
+                    
+                    // イベントリスナー設定
+                    this.setupEventListeners();
+                    
+                    // 日付範囲の初期化
+                    this.initializeDateRange();
+                    
+                    // 概要データ読み込み
+                    await this.loadOverviewData();
+                    
+                    this.isInitialized = true;
+                    console.log('✅ アプリケーション初期化完了');
+                    
+                } catch (error) {
+                    console.error('❌ 初期化エラー:', error);
+                    this.showError('アプリケーションの初期化に失敗しました。');
+                }
+            }
+
+            // イベントリスナー設定
+            setupEventListeners() {
+                console.log('イベントリスナーを設定中...');
+                
+                // タブ切り替え
+                const tabs = ['overview', 'dashboard', 'kpi', 'reports', 'advanced'];
+                tabs.forEach(tab => {
+                    const tabButton = document.getElementById(`tab-${tab}`);
+                    if (tabButton) {
+                        tabButton.addEventListener('click', () => this.switchTab(tab));
+                    }
+                });
+
+                // 日付範囲変更
+                const dateFrom = document.getElementById('date-from');
+                const dateTo = document.getElementById('date-to');
+                if (dateFrom) dateFrom.addEventListener('change', () => this.handleDateRangeChange());
+                if (dateTo) dateTo.addEventListener('change', () => this.handleDateRangeChange());
+
+                // チャート期間ボタン
+                document.querySelectorAll('.chart-period-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.handleChartPeriodChange(e));
+                });
+
+                // ログアウト
+                const logoutBtn = document.getElementById('logout-btn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => this.handleLogout());
+                }
+
+                console.log('✅ イベントリスナー設定完了');
+            }
+
+            // 日付範囲初期化
+            initializeDateRange() {
+                const today = new Date();
+                const thirtyDaysAgo = new Date(today);
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+
+                const fromInput = document.getElementById('date-from');
+                const toInput = document.getElementById('date-to');
+                
+                if (fromInput) fromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+                if (toInput) toInput.value = today.toISOString().split('T')[0];
+            }
+
+            // タブ切り替え
+            switchTab(tabName) {
+                console.log(`タブ切り替え: ${tabName}`);
+                
+                // 全てのタブを非アクティブ
+                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+                // 選択されたタブをアクティブ
+                const tabButton = document.getElementById(`tab-${tabName}`);
+                const tabContent = document.getElementById(`content-${tabName}`);
+                
+                if (tabButton) tabButton.classList.add('active');
+                if (tabContent) tabContent.classList.add('active');
+                
+                this.currentTab = tabName;
+
+                // タブ固有の処理
+                if (tabName === 'overview') {
+                    this.loadOverviewData();
+                }
+            }
+
+            // 概要データ読み込み
+            async loadOverviewData() {
+                try {
+                    console.log('概要データを読み込み中...');
+                    
+                    // チャートが利用可能かチェック
+                    if (typeof Chart !== 'undefined') {
+                        this.renderContactsTrendChart();
+                        this.renderStatusDistributionChart();
+                    } else {
+                        console.warn('Chart.js が読み込まれていません');
+                    }
+                    
+                    // 最終更新時刻を表示
+                    this.updateLastUpdated();
+                    
+                } catch (error) {
+                    console.error('概要データ読み込みエラー:', error);
+                    this.showError('データの読み込みに失敗しました');
+                }
+            }
+
+            // お問い合わせ推移チャート
+            renderContactsTrendChart() {
+                const canvas = document.getElementById('contacts-trend-chart');
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                
+                if (this.charts.contactsTrend) {
+                    this.charts.contactsTrend.destroy();
+                }
+
+                const data = this.generateTrendData(30);
+                
+                this.charts.contactsTrend = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'お問い合わせ数',
+                            data: data.values,
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderColor: 'rgba(59, 130, 246, 0.8)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ステータス分布チャート
+            renderStatusDistributionChart() {
+                const canvas = document.getElementById('status-distribution-chart');
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                
+                if (this.charts.statusDistribution) {
+                    this.charts.statusDistribution.destroy();
+                }
+
+                this.charts.statusDistribution = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['未対応', '対応中', '対応済み'],
+                        datasets: [{
+                            data: [45, 28, 127],
+                            backgroundColor: [
+                                '#fbbf24',
+                                '#3b82f6',
+                                '#10b981'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // トレンドデータ生成
+            generateTrendData(days) {
+                const labels = [];
+                const values = [];
+                const now = new Date();
+                
+                for (let i = days - 1; i >= 0; i--) {
+                    const date = new Date(now);
+                    date.setDate(date.getDate() - i);
+                    labels.push(date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }));
+                    values.push(Math.floor(Math.random() * 50) + 10);
+                }
+                
+                return { labels, values };
+            }
+
+            // チャート期間変更
+            handleChartPeriodChange(event) {
+                // アクティブボタンを更新
+                document.querySelectorAll('.chart-period-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+                
+                // チャートを再描画
+                const period = parseInt(event.target.dataset.period);
+                console.log(`チャート期間変更: ${period}日`);
+                
+                // 新しい期間でデータを生成してチャートを更新
+                if (this.charts.contactsTrend) {
+                    const newData = this.generateTrendData(period);
+                    this.charts.contactsTrend.data.labels = newData.labels;
+                    this.charts.contactsTrend.data.datasets[0].data = newData.values;
+                    this.charts.contactsTrend.update();
+                }
+            }
+
+            // 日付範囲変更処理
+            handleDateRangeChange() {
+                console.log('日付範囲が変更されました');
+                // 現在のタブのデータを再読み込み
+                if (this.currentTab === 'overview') {
+                    this.loadOverviewData();
+                }
+            }
+
+            // 最終更新時刻を更新
+            updateLastUpdated() {
+                const lastUpdated = document.getElementById('last-updated');
+                if (lastUpdated) {
+                    lastUpdated.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP')}`;
+                }
+            }
+
+            // エラー表示
+            showError(message) {
+                console.error('エラー:', message);
+                const errorBanner = document.getElementById('error-banner');
+                const errorMessage = document.getElementById('error-message');
+                
+                if (errorMessage) errorMessage.textContent = message;
+                if (errorBanner) errorBanner.classList.remove('hidden');
+                
+                // 5秒後に自動で非表示
+                setTimeout(() => {
+                    if (errorBanner) errorBanner.classList.add('hidden');
+                }, 5000);
+            }
+
+            // ログアウト処理
+            async handleLogout() {
+                try {
+                    console.log('ログアウト処理を実行');
+                    // 実際の環境では Supabase のログアウト処理
+                    window.location.href = '../login.html';
+                } catch (error) {
+                    console.error('ログアウトエラー:', error);
+                    this.showError('ログアウト中にエラーが発生しました');
+                }
+            }
+        }
+
+        // グローバル関数
+        function hideErrorBanner() {
+            const errorBanner = document.getElementById('error-banner');
+            if (errorBanner) {
+                errorBanner.classList.add('hidden');
+            }
+        }
+
+        // アプリケーション初期化
+        let app;
+
+        // DOMContentLoaded イベントで初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM読み込み完了、アプリケーションを初期化します...');
+            
+            try {
+                app = new ReportSystemApp();
+                app.initialize().catch(error => {
+                    console.error('初期化中にエラーが発生しました:', error);
+                });
+            } catch (error) {
+                console.error('アプリケーション作成エラー:', error);
+            }
+        });
+
+        // フォールバック: window.onload
+        window.addEventListener('load', function() {
+            if (!app || !app.isInitialized) {
+                console.log('フォールバック初期化を実行');
+                try {
+                    app = new ReportSystemApp();
+                    app.initialize().catch(error => {
+                        console.error('フォールバック初期化エラー:', error);
+                    });
+                } catch (error) {
+                    console.error('フォールバック初期化作成エラー:', error);
+                }
+            }
+        });
+
+        // グローバルアクセス用
+        window.app = app;
+    </script>
+</body>
+</html>

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データベーステスト（セキュア版）</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // Supabaseの設定（anon keyのみ使用）
+        const SUPABASE_URL = 'https://nbhjxajownbjlaqkarcm.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iaGp4YWpvd25iamxhcWthcmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NTU4MjIsImV4cCI6MjA2NDIzMTgyMn0.Wgo1xRaUD9v-xXtl6RvmjEDsJqn4osKnJkNonqoMqPY'; // anon key のみ
+        
+        // テスト結果の状態
+        const testResults = {
+            test1: { name: 'データベース接続', passed: false, message: '' },
+            test2: { name: 'データ取得', passed: false, message: '' },
+            test3: { name: 'データ作成', passed: false, message: '' },
+            test4: { name: 'データ更新', passed: false, message: '' },
+            test5: { name: 'データ削除', passed: false, message: '' }
+        };
+        
+        // テストユーザーの認証情報
+        const TEST_USER = {
+            email: 'takahashi@a-seek.jp',
+            password: 'test'
+        };
+        
+        // テストデータ
+        const TEST_CONTACT = {
+            name: 'テスト 太郎',
+            email: 'test@example.com',
+            message: 'これはテスト用の問い合わせです。',
+            status: 'pending',
+            inquiry_type: 'general'
+        };
+        
+        let supabaseClient = null;
+        
+        // Supabaseクライアント初期化（anon keyのみ）
+        try {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            window.supabaseClient = supabaseClient;
+            console.log('✅ Supabaseクライアント初期化成功（セキュア版）');
+        } catch (error) {
+            console.error('❌ Supabaseクライアント初期化失敗:', error);
+        }
+        
+        // テストの実行
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOMContentLoaded: セキュア版テストを開始します');
+            
+            // キーの確認
+            if (SUPABASE_ANON_KEY === '認証テストで成功したキーをここに入力') {
+                document.getElementById('test-summary-text').textContent = 'エラー: APIキーを設定してください';
+                return;
+            }
+            
+            try {
+                if (!window.supabaseClient) {
+                    throw new Error('Supabaseクライアントが初期化されていません');
+                }
+                
+                console.log('Supabase client status:', window.supabaseClient ? 'OK' : 'Not OK');
+                
+                await runTests();
+                updateTestSummary();
+            } catch (error) {
+                console.error('テストの実行中にエラーが発生しました:', error);
+                const summaryText = document.getElementById('test-summary-text');
+                if (summaryText) {
+                    summaryText.textContent = `エラー: ${error.message}`;
+                }
+            }
+        });
+        
+        // テストを実行する関数
+        async function runTests() {
+            try {
+                // まず認証を行う
+                await authenticateUser();
+                
+                await testDatabaseConnection();
+                await testDataFetch();
+                const createdId = await testCreateData();
+                
+                if (createdId) {
+                    console.log('作成されたID:', createdId);
+                    await testUpdateData(createdId);
+                    await testDeleteData(createdId);
+                } else {
+                    console.error('データの作成に失敗したため、更新・削除テストをスキップします');
+                }
+            } catch (error) {
+                console.error('テスト実行中にエラーが発生しました:', error);
+            }
+        }
+        
+        // ユーザー認証
+        async function authenticateUser() {
+            try {
+                console.log('ユーザー認証を開始...');
+                
+                const { data: { session }, error: authError } = await window.supabaseClient.auth.signInWithPassword({
+                    email: TEST_USER.email,
+                    password: TEST_USER.password
+                });
+                
+                if (authError) {
+                    throw new Error(`認証失敗: ${authError.message}`);
+                }
+                
+                if (!session) {
+                    throw new Error('セッションの作成に失敗しました');
+                }
+                
+                console.log('✅ ユーザー認証成功:', session.user.email);
+                
+                // 認証状態を表示に反映
+                const authStatus = document.getElementById('auth-status');
+                if (authStatus) {
+                    authStatus.innerHTML = `<span class="text-green-600">✅ 認証済み: ${session.user.email}</span>`;
+                }
+                
+            } catch (error) {
+                console.error('認証エラー:', error);
+                const authStatus = document.getElementById('auth-status');
+                if (authStatus) {
+                    authStatus.innerHTML = `<span class="text-red-600">❌ 認証失敗: ${error.message}</span>`;
+                }
+                throw error;
+            }
+        }
+        
+        // テストケース1: データベース接続テスト
+        async function testDatabaseConnection() {
+            const testElement = document.getElementById('test1');
+            const resultElement = document.getElementById('test1-result');
+            
+            try {
+                testElement.classList.add('border-yellow-200', 'bg-yellow-50');
+                resultElement.textContent = 'データベース接続を確認しています...';
+                
+                const { data, error } = await window.supabaseClient
+                    .from('contacts')
+                    .select('*')
+                    .limit(1);
+
+                console.log('Database connection test:', { data, error });
+
+                if (error) throw error;
+                
+                testResults.test1.passed = true;
+                testResults.test1.message = 'データベース接続に成功しました。';
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-green-200', 'bg-green-50');
+            } catch (error) {
+                console.error('データベース接続エラー:', error);
+                testResults.test1.message = `データベース接続に失敗しました: ${error.message}`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-red-200', 'bg-red-50');
+            } finally {
+                resultElement.textContent = testResults.test1.message;
+            }
+        }
+        
+        // テストケース2: データ取得テスト
+        async function testDataFetch() {
+            const testElement = document.getElementById('test2');
+            const resultElement = document.getElementById('test2-result');
+            
+            try {
+                testElement.classList.add('border-yellow-200', 'bg-yellow-50');
+                resultElement.textContent = 'データを取得しています...';
+                
+                const { data, error } = await window.supabaseClient
+                    .from('contacts')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                console.log('Data fetch test:', { data, error });
+
+                if (error) throw error;
+                
+                testResults.test2.passed = true;
+                testResults.test2.message = `データの取得に成功しました（${data.length}件）`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-green-200', 'bg-green-50');
+            } catch (error) {
+                console.error('データ取得エラー:', error);
+                testResults.test2.message = `データの取得に失敗しました: ${error.message}`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-red-200', 'bg-red-50');
+            } finally {
+                resultElement.textContent = testResults.test2.message;
+            }
+        }
+        
+        // テストケース3: データ作成テスト
+        async function testCreateData() {
+            const testElement = document.getElementById('test3');
+            const resultElement = document.getElementById('test3-result');
+            
+            try {
+                testElement.classList.add('border-yellow-200', 'bg-yellow-50');
+                resultElement.textContent = 'データを作成しています...';
+                
+                const { data, error } = await window.supabaseClient
+                    .from('contacts')
+                    .insert([TEST_CONTACT])
+                    .select();
+
+                console.log('Create data test:', { data, error });
+
+                if (error) throw error;
+                if (!data || data.length === 0) throw new Error('作成されたデータがありません');
+                
+                testResults.test3.passed = true;
+                testResults.test3.message = `データの作成に成功しました（ID: ${data[0].id}）`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-green-200', 'bg-green-50');
+                
+                return data[0].id;
+            } catch (error) {
+                console.error('データ作成エラー:', error);
+                testResults.test3.message = `データの作成に失敗しました: ${error.message}`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-red-200', 'bg-red-50');
+                return null;
+            } finally {
+                resultElement.textContent = testResults.test3.message;
+            }
+        }
+        
+        // テストケース4: データ更新テスト（認証ユーザー権限）
+        async function testUpdateData(contactId) {
+            const testElement = document.getElementById('test4');
+            const resultElement = document.getElementById('test4-result');
+            
+            try {
+                testElement.classList.add('border-yellow-200', 'bg-yellow-50');
+                resultElement.textContent = 'データを更新しています（認証ユーザー権限）...';
+                
+                // 更新前のデータを確認
+                const { data: beforeData, error: fetchError } = await window.supabaseClient
+                    .from('contacts')
+                    .select('*')
+                    .eq('id', contactId)
+                    .single();
+
+                if (fetchError || !beforeData) {
+                    throw new Error('更新前のデータが見つかりません');
+                }
+                
+                console.log('更新前データ:', beforeData);
+                
+                const updates = {
+                    status: 'processed',
+                    inquiry_type: 'general',
+                    updated_at: new Date().toISOString()
+                };
+                
+                // 更新を実行
+                const { data: updatedData, error: updateError } = await window.supabaseClient
+                    .from('contacts')
+                    .update(updates)
+                    .eq('id', contactId)
+                    .select();
+
+                console.log('更新結果:', { updatedData, updateError });
+
+                if (updateError) {
+                    throw updateError;
+                }
+                
+                if (!updatedData || updatedData.length === 0) {
+                    throw new Error('更新されたデータが返されませんでした');
+                }
+                
+                // 更新が正しく適用されたか確認
+                const updatedContact = updatedData[0];
+                if (updatedContact.status !== 'processed') {
+                    throw new Error(`ステータスが更新されていません: ${updatedContact.status}`);
+                }
+                
+                console.log('更新後のデータ:', updatedContact);
+                
+                testResults.test4.passed = true;
+                testResults.test4.message = `データの更新に成功しました（認証ユーザー権限）`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-green-200', 'bg-green-50');
+                
+            } catch (error) {
+                console.error('データ更新エラー:', error);
+                testResults.test4.message = `データの更新に失敗しました: ${error.message}`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-red-200', 'bg-red-50');
+            } finally {
+                resultElement.textContent = testResults.test4.message;
+            }
+        }
+        
+        // テストケース5: データ削除テスト（認証ユーザー権限）
+        async function testDeleteData(contactId) {
+            const testElement = document.getElementById('test5');
+            const resultElement = document.getElementById('test5-result');
+            
+            try {
+                testElement.classList.add('border-yellow-200', 'bg-yellow-50');
+                resultElement.textContent = 'データを削除しています（認証ユーザー権限）...';
+                
+                const { data, error } = await window.supabaseClient
+                    .from('contacts')
+                    .delete()
+                    .eq('id', contactId)
+                    .select();
+
+                console.log('Delete data test:', { data, error });
+
+                if (error) throw error;
+                
+                // 削除されたことを確認
+                const { data: verifyData, error: verifyError } = await window.supabaseClient
+                    .from('contacts')
+                    .select('*')
+                    .eq('id', contactId)
+                    .single();
+
+                // データが見つからない（削除されている）ことを確認
+                if (verifyData) {
+                    throw new Error('データが削除されていません');
+                }
+                
+                // 404エラー（データが見つからない）は正常
+                if (verifyError && !verifyError.message.includes('matching row')) {
+                    console.log('削除確認エラー（正常）:', verifyError.message);
+                }
+
+                testResults.test5.passed = true;
+                testResults.test5.message = `データの削除に成功しました（認証ユーザー権限）`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-green-200', 'bg-green-50');
+            } catch (error) {
+                console.error('データ削除エラー:', error);
+                testResults.test5.message = `データの削除に失敗しました: ${error.message}`;
+                testElement.classList.remove('border-yellow-200', 'bg-yellow-50');
+                testElement.classList.add('border-red-200', 'bg-red-50');
+            } finally {
+                resultElement.textContent = testResults.test5.message;
+            }
+        }
+        
+        // テスト結果のサマリーを更新
+        function updateTestSummary() {
+            const statusElement = document.getElementById('test-status');
+            const detailsElement = document.getElementById('test-details');
+            const summaryText = document.getElementById('test-summary-text');
+            
+            if (!statusElement || !detailsElement || !summaryText) {
+                console.error('必要な要素が見つかりませんでした');
+                return;
+            }
+            
+            const passedTests = Object.values(testResults).filter(test => test.passed).length;
+            const totalTests = Object.keys(testResults).length;
+            
+            if (passedTests === totalTests) {
+                statusElement.className = 'w-4 h-4 rounded-full bg-green-500 mr-2';
+                summaryText.textContent = 'すべてのテストが成功しました';
+                detailsElement.innerHTML = `
+                    <p class="text-green-700">✅ すべてのテストが成功しました (${passedTests}/${totalTests})</p>
+                    <p class="text-green-600 text-sm mt-2">🔒 セキュアな認証ユーザー権限で全操作が正常に動作しています</p>
+                `;
+            } else {
+                statusElement.className = 'w-4 h-4 rounded-full bg-red-500 mr-2';
+                summaryText.textContent = '一部のテストが失敗しました';
+                detailsElement.innerHTML = `
+                    <p class="text-red-700">❌ 一部のテストが失敗しました (${passedTests}/${totalTests})</p>
+                    <ul class="list-disc pl-5 mt-2 space-y-1">
+                        ${Object.entries(testResults).map(([testName, result]) => 
+                            `<li class="${result.passed ? 'text-green-700' : 'text-red-700'}">
+                                ${result.name}: ${result.passed ? '✓' : '✗'} ${result.message}
+                            </li>`
+                        ).join('')}
+                    </ul>
+                `;
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">データベーステスト（セキュア版）</h1>
+        
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <h3 class="font-medium text-green-800 mb-2">🔒 セキュリティ重視:</h3>
+            <ul class="text-sm text-green-700 list-disc list-inside space-y-1">
+                <li><strong>anon key のみ使用</strong> - サービスロールキー不要</li>
+                <li><strong>認証ユーザー権限</strong> - RLSポリシーに基づく安全な操作</li>
+                <li><strong>本番環境対応</strong> - そのまま本番で使用可能</li>
+            </ul>
+        </div>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 class="font-medium text-blue-800 mb-2">🔐 認証ステータス:</h3>
+            <div id="auth-status" class="text-sm">
+                <span class="text-gray-600">認証中...</span>
+            </div>
+        </div>
+        
+        <!-- テストケースの表示 -->
+        <div class="space-y-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4">
+                <h3 class="font-semibold mb-2">テストケース 1: データベース接続</h3>
+                <div id="test1" class="p-3 border rounded">
+                    <div id="test1-result" class="text-sm">待機中...</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-4">
+                <h3 class="font-semibold mb-2">テストケース 2: データ取得</h3>
+                <div id="test2" class="p-3 border rounded">
+                    <div id="test2-result" class="text-sm">待機中...</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-4">
+                <h3 class="font-semibold mb-2">テストケース 3: データ作成</h3>
+                <div id="test3" class="p-3 border rounded">
+                    <div id="test3-result" class="text-sm">待機中...</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-4">
+                <h3 class="font-semibold mb-2">テストケース 4: データ更新（認証ユーザー権限）</h3>
+                <div id="test4" class="p-3 border rounded">
+                    <div id="test4-result" class="text-sm">待機中...</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-4">
+                <h3 class="font-semibold mb-2">テストケース 5: データ削除（認証ユーザー権限）</h3>
+                <div id="test5" class="p-3 border rounded">
+                    <div id="test5-result" class="text-sm">待機中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- テスト結果サマリー -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">テスト結果サマリー</h2>
+            <div class="p-4 border rounded">
+                <div class="flex items-center mb-2">
+                    <div class="w-4 h-4 rounded-full bg-gray-300 mr-2" id="test-status"></div>
+                    <span id="test-summary-text">テストを実行中...</span>
+                </div>
+                <div class="text-sm" id="test-details"></div>
+            </div>
+        </div>
+        
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6">
+            <h3 class="font-medium text-gray-800 mb-2">✅ このテストの利点:</h3>
+            <ul class="text-sm text-gray-700 list-disc list-inside space-y-1">
+                <li>セキュリティが高い（サービスロールキーを使用しない）</li>
+                <li>本番環境でそのまま使用可能</li>
+                <li>RLSポリシーが正常に動作することを確認</li>
+                <li>認証システムとデータベース操作の統合テスト</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

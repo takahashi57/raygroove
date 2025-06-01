@@ -1,0 +1,1043 @@
+settings/general.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基本設定 - お問い合わせ管理システム</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        /* 設定画面専用スタイル */
+        .setting-card {
+            transition: all 0.2s ease;
+        }
+        .setting-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4F46E5;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .maintenance-mode {
+            background: linear-gradient(45deg, #fbbf24, #f59e0b);
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .logo-upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .logo-upload-area:hover {
+            border-color: #4F46E5;
+            background-color: #f8fafc;
+        }
+        .logo-upload-area.dragover {
+            border-color: #1d4ed8;
+            background-color: #eff6ff;
+        }
+        .current-logo {
+            max-width: 200px;
+            max-height: 100px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- サイドバー -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">管理画面</h1>
+                <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
+            </div>
+            <nav class="mt-4">
+                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-inbox mr-3"></i> お問い合わせ一覧
+                <div class="px-4 py-2">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">設定</p>
+                </div>
+                <a href="general.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
+                    <i class="fas fa-cog mr-3"></i> 基本設定
+                </a>
+                <a href="email.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-envelope mr-3"></i> メール設定
+                </a>
+                <a href="#" id="logout-btn" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
+                    <i class="fas fa-sign-out-alt mr-3"></i> ログアウト
+                </a>
+            </nav>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">基本設定</h2>
+                        <p class="text-sm text-gray-600">システムの基本情報・動作設定</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="user-email" class="text-sm text-gray-600">読み込み中...</span>
+                        <div class="text-xs text-gray-500" id="last-saved">
+                            最終保存: <span id="last-saved-time">-</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <!-- メンテナンスモード通知 -->
+                <div id="maintenance-notification" class="maintenance-mode hidden">
+                    <div class="flex items-center">
+                        <i class="fas fa-tools text-2xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold">メンテナンスモード有効</h3>
+                            <p class="text-sm opacity-90">システムはメンテナンスモードで動作中です。一般ユーザーはアクセスできません。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 基本情報設定 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-info-circle mr-2 text-blue-600"></i>基本情報
+                            </h3>
+                            <p class="text-sm text-gray-600">サイトの基本情報を設定します</p>
+                        </div>
+                        <button id="save-basic-info" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-save mr-2"></i>保存
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">サイト名 *</label>
+                                <input type="text" id="site-name" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="お問い合わせ管理システム">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">管理者名</label>
+                                <input type="text" id="admin-name" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="システム管理者">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">サイト説明</label>
+                            <textarea id="site-description" rows="3" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="お客様からのお問い合わせを効率的に管理するシステムです。"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">メール通知先</label>
+                                <input type="email" id="notification-email" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="admin@example.com">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">タイムゾーン *</label>
+                                <select id="timezone" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <option value="Asia/Tokyo">日本標準時 (JST)</option>
+                                    <option value="UTC">協定世界時 (UTC)</option>
+                                    <option value="America/New_York">東部標準時 (EST)</option>
+                                    <option value="Europe/London">グリニッジ標準時 (GMT)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">言語設定</label>
+                            <select id="language" class="block w-full md:w-1/2 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                <option value="ja">日本語</option>
+                                <option value="en">English</option>
+                                <option value="ko">한국어</option>
+                                <option value="zh">中文</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ロゴ・ブランディング設定 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-palette mr-2 text-purple-600"></i>ロゴ・ブランディング
+                            </h3>
+                            <p class="text-sm text-gray-600">サイトのロゴとブランディング要素を設定します</p>
+                        </div>
+                        <button id="save-branding" class="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition-colors duration-200">
+                            <i class="fas fa-save mr-2"></i>保存
+                        </button>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">サイトロゴ</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <div class="logo-upload-area" id="logo-upload-area">
+                                        <input type="file" id="logo-file" accept="image/*" class="hidden">
+                                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-gray-600 mb-2">ロゴファイルをドラッグ&ドロップ</p>
+                                        <p class="text-sm text-gray-500">または、クリックしてファイルを選択</p>
+                                        <p class="text-xs text-gray-400 mt-2">推奨サイズ: 200x100px以下、PNG/JPG形式</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-700 mb-2">現在のロゴ</p>
+                                    <div class="border border-gray-200 rounded-md p-4 bg-gray-50 flex items-center justify-center h-32">
+                                        <img id="current-logo" class="current-logo hidden" alt="現在のロゴ">
+                                        <div id="no-logo" class="text-center text-gray-500">
+                                            <i class="fas fa-image text-3xl mb-2"></i>
+                                            <p class="text-sm">ロゴが設定されていません</p>
+                                        </div>
+                                    </div>
+                                    <button id="remove-logo" class="mt-2 text-sm text-red-600 hover:text-red-800 hidden">
+                                        <i class="fas fa-trash mr-1"></i>ロゴを削除
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">プライマリカラー</label>
+                                <div class="flex items-center space-x-3">
+                                    <input type="color" id="primary-color" value="#4F46E5" class="h-10 w-20 border border-gray-300 rounded cursor-pointer">
+                                    <input type="text" id="primary-color-hex" value="#4F46E5" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">セカンダリカラー</label>
+                                <div class="flex items-center space-x-3">
+                                    <input type="color" id="secondary-color" value="#6B7280" class="h-10 w-20 border border-gray-300 rounded cursor-pointer">
+                                    <input type="text" id="secondary-color-hex" value="#6B7280" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- システム動作設定 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-cogs mr-2 text-green-600"></i>システム動作設定
+                            </h3>
+                            <p class="text-sm text-gray-600">システムの動作モード・機能を設定します</p>
+                        </div>
+                        <button id="save-system-settings" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors duration-200">
+                            <i class="fas fa-save mr-2"></i>保存
+                        </button>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <i class="fas fa-tools text-yellow-600 text-xl mr-3"></i>
+                                    <div>
+                                        <h4 class="font-medium text-yellow-800">メンテナンスモード</h4>
+                                        <p class="text-sm text-yellow-700">有効にすると一般ユーザーのアクセスを制限します</p>
+                                    </div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="maintenance-mode">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div id="maintenance-message-section" class="mt-4 hidden">
+                                <label class="block text-sm font-medium text-yellow-800 mb-2">メンテナンス中メッセージ</label>
+                                <textarea id="maintenance-message" rows="2" class="block w-full border border-yellow-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm" placeholder="現在システムメンテナンス中です。しばらくお待ちください。"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">新規問い合わせ受付</h4>
+                                    <p class="text-sm text-gray-600">フォームからの新規受付を制御</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="accept-inquiries" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">自動返信メール</h4>
+                                    <p class="text-sm text-gray-600">問い合わせ受信時の自動返信</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="auto-reply" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">メール通知</h4>
+                                    <p class="text-sm text-gray-600">新規問い合わせの管理者通知</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="admin-notifications" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">添付ファイル許可</h4>
+                                    <p class="text-sm text-gray-600">問い合わせフォームでのファイル添付</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="allow-attachments" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">データ保持期間（日）</label>
+                                <input type="number" id="data-retention-days" value="365" min="30" max="3650" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm">
+                                <p class="text-xs text-gray-500 mt-1">完了済み問い合わせの保持期間</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">最大添付ファイルサイズ（MB）</label>
+                                <input type="number" id="max-file-size" value="10" min="1" max="100" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ページ表示件数</label>
+                                <select id="items-per-page" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm">
+                                    <option value="10">10件</option>
+                                    <option value="20">20件</option>
+                                    <option value="50">50件</option>
+                                    <option value="100">100件</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- セキュリティ設定 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-shield-alt mr-2 text-red-600"></i>セキュリティ設定
+                            </h3>
+                            <p class="text-sm text-gray-600">システムのセキュリティ設定を管理します</p>
+                        </div>
+                        <button id="save-security-settings" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors duration-200">
+                            <i class="fas fa-save mr-2"></i>保存
+                        </button>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">二段階認証必須</h4>
+                                    <p class="text-sm text-gray-600">管理者ログイン時の2FA強制</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="require-2fa">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">IP制限</h4>
+                                    <p class="text-sm text-gray-600">管理画面のアクセスIP制限</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="ip-restriction">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">セッション有効期限（分）</label>
+                                <input type="number" id="session-timeout" value="60" min="5" max="1440" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ログイン試行回数上限</label>
+                                <input type="number" id="login-attempts" value="5" min="3" max="20" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                            </div>
+                        </div>
+
+                        <div id="allowed-ips-section" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">許可IPアドレス</label>
+                            <textarea id="allowed-ips" rows="3" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" placeholder="192.168.1.0/24&#10;10.0.0.100&#10;203.0.113.0/28"></textarea>
+                            <p class="text-xs text-gray-500 mt-1">IPアドレスまたはCIDR記法で1行ずつ入力してください</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- バックアップ・復元 -->
+                <div class="setting-card bg-white shadow rounded-lg p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <i class="fas fa-database mr-2 text-indigo-600"></i>バックアップ・復元
+                            </h3>
+                            <p class="text-sm text-gray-600">データのバックアップと復元機能</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="create-backup" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors duration-200">
+                                <i class="fas fa-download mr-2"></i>バックアップ作成
+                            </button>
+                            <button id="save-backup-settings" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors duration-200">
+                                <i class="fas fa-save mr-2"></i>設定保存
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <div>
+                                <h4 class="font-medium text-gray-900">自動バックアップ</h4>
+                                <p class="text-sm text-gray-600">定期的な自動バックアップの実行</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="auto-backup" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div id="backup-schedule-section">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">バックアップ頻度</label>
+                                    <select id="backup-frequency" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                        <option value="daily">毎日</option>
+                                        <option value="weekly">毎週</option>
+                                        <option value="monthly">毎月</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">実行時間</label>
+                                    <input type="time" id="backup-time" value="02:00" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">保持するバックアップ数</label>
+                                <input type="number" id="backup-retention" value="7" min="1" max="30" class="block w-full md:w-1/3 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="font-medium text-gray-900 mb-4">最近のバックアップ</h4>
+                            <div id="backup-list" class="space-y-2">
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">backup_2025_01_15_02_00.sql</p>
+                                        <p class="text-xs text-gray-500">2025年1月15日 02:00 - 自動バックアップ - 2.3MB</p>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-download mr-1"></i>ダウンロード
+                                        </button>
+                                        <button class="text-green-600 hover:text-green-800 text-sm">
+                                            <i class="fas fa-undo mr-1"></i>復元
+                                        </button>
+                                        <button class="text-red-600 hover:text-red-800 text-sm">
+                                            <i class="fas fa-trash mr-1"></i>削除
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-center py-4 text-sm text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    バックアップデータを読み込んでいます...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // 基本設定管理システム
+        class GeneralSettingsApp {
+            constructor() {
+                this.supabaseClient = null;
+                this.currentUser = null;
+                this.settings = {};
+                this.isDirty = false;
+            }
+
+            // Supabase初期化
+            async initializeSupabase() {
+                try {
+                    const SUPABASE_URL = 'https://nbhjxajownbjlaqkarcm.supabase.co';
+                    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iaGp4YWpvd25iamxhcWthcmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NTU4MjIsImV4cCI6MjA2NDIzMTgyMn0.Wgo1xRaUD9v-xXtl6RvmjEDsJqn4osKnJkNonqoMqPY';
+                    
+                    this.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    
+                    const { data: { session }, error } = await this.supabaseClient.auth.getSession();
+                    if (!session) {
+                        window.location.href = '../login.html';
+                        return false;
+                    }
+
+                    this.currentUser = session.user;
+                    document.getElementById('user-email').textContent = this.currentUser.email;
+                    return true;
+                } catch (error) {
+                    console.error('Supabase初期化エラー:', error);
+                    alert('システムの初期化に失敗しました。');
+                    return false;
+                }
+            }
+
+            // アプリケーション初期化
+            async initialize() {
+                const success = await this.initializeSupabase();
+                if (!success) return;
+
+                this.setupEventListeners();
+                await this.loadSettings();
+            }
+
+            // イベントリスナー設定
+            setupEventListeners() {
+                // 保存ボタン
+                document.getElementById('save-basic-info').addEventListener('click', () => this.saveBasicInfo());
+                document.getElementById('save-branding').addEventListener('click', () => this.saveBranding());
+                document.getElementById('save-system-settings').addEventListener('click', () => this.saveSystemSettings());
+                document.getElementById('save-security-settings').addEventListener('click', () => this.saveSecuritySettings());
+                document.getElementById('save-backup-settings').addEventListener('click', () => this.saveBackupSettings());
+
+                // メンテナンスモード切り替え
+                document.getElementById('maintenance-mode').addEventListener('change', (e) => {
+                    const messageSection = document.getElementById('maintenance-message-section');
+                    const notification = document.getElementById('maintenance-notification');
+                    
+                    if (e.target.checked) {
+                        messageSection.classList.remove('hidden');
+                        notification.classList.remove('hidden');
+                    } else {
+                        messageSection.classList.add('hidden');
+                        notification.classList.add('hidden');
+                    }
+                });
+
+                // IP制限切り替え
+                document.getElementById('ip-restriction').addEventListener('change', (e) => {
+                    const ipSection = document.getElementById('allowed-ips-section');
+                    if (e.target.checked) {
+                        ipSection.classList.remove('hidden');
+                    } else {
+                        ipSection.classList.add('hidden');
+                    }
+                });
+
+                // カラーピッカー同期
+                document.getElementById('primary-color').addEventListener('change', (e) => {
+                    document.getElementById('primary-color-hex').value = e.target.value;
+                });
+                document.getElementById('primary-color-hex').addEventListener('change', (e) => {
+                    document.getElementById('primary-color').value = e.target.value;
+                });
+                document.getElementById('secondary-color').addEventListener('change', (e) => {
+                    document.getElementById('secondary-color-hex').value = e.target.value;
+                });
+                document.getElementById('secondary-color-hex').addEventListener('change', (e) => {
+                    document.getElementById('secondary-color').value = e.target.value;
+                });
+
+                // ロゴアップロード
+                document.getElementById('logo-upload-area').addEventListener('click', () => {
+                    document.getElementById('logo-file').click();
+                });
+                document.getElementById('logo-file').addEventListener('change', (e) => this.handleLogoUpload(e));
+                document.getElementById('remove-logo').addEventListener('click', () => this.removeLogo());
+
+                // ドラッグ&ドロップ
+                const logoArea = document.getElementById('logo-upload-area');
+                logoArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    logoArea.classList.add('dragover');
+                });
+                logoArea.addEventListener('dragleave', () => {
+                    logoArea.classList.remove('dragover');
+                });
+                logoArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    logoArea.classList.remove('dragover');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        this.processLogoFile(files[0]);
+                    }
+                });
+
+                // バックアップ
+                document.getElementById('create-backup').addEventListener('click', () => this.createBackup());
+                document.getElementById('auto-backup').addEventListener('change', (e) => {
+                    const scheduleSection = document.getElementById('backup-schedule-section');
+                    if (e.target.checked) {
+                        scheduleSection.style.opacity = '1';
+                    } else {
+                        scheduleSection.style.opacity = '0.5';
+                    }
+                });
+
+                // ログアウト
+                document.getElementById('logout-btn').addEventListener('click', () => this.handleLogout());
+
+                // 変更検知
+                this.setupChangeDetection();
+            }
+
+            // 変更検知設定
+            setupChangeDetection() {
+                const inputs = document.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => {
+                    input.addEventListener('change', () => {
+                        this.isDirty = true;
+                    });
+                });
+
+                // ページ離脱時の確認
+                window.addEventListener('beforeunload', (e) => {
+                    if (this.isDirty) {
+                        e.preventDefault();
+                        e.returnValue = '変更が保存されていません。ページを離れますか？';
+                    }
+                });
+            }
+
+            // 設定読み込み
+            async loadSettings() {
+                try {
+                    const { data, error } = await this.supabaseClient
+                        .from('system_settings')
+                        .select('*');
+
+                    if (error) throw error;
+
+                    // 設定をオブジェクトに変換
+                    this.settings = {};
+                    data.forEach(setting => {
+                        this.settings[setting.key] = setting.value;
+                    });
+
+                    // フォームに設定値を反映
+                    this.populateForm();
+                    this.updateLastSaved();
+
+                } catch (error) {
+                    console.error('設定読み込みエラー:', error);
+                    alert('設定の読み込みに失敗しました。');
+                }
+            }
+
+            // フォームに設定値を反映
+            populateForm() {
+                // 基本情報
+                document.getElementById('site-name').value = this.settings.site_name || 'お問い合わせ管理システム';
+                document.getElementById('admin-name').value = this.settings.admin_name || '';
+                document.getElementById('site-description').value = this.settings.site_description || '';
+                document.getElementById('notification-email').value = this.settings.notification_email || '';
+                document.getElementById('timezone').value = this.settings.timezone || 'Asia/Tokyo';
+                document.getElementById('language').value = this.settings.language || 'ja';
+
+                // ブランディング
+                document.getElementById('primary-color').value = this.settings.primary_color || '#4F46E5';
+                document.getElementById('primary-color-hex').value = this.settings.primary_color || '#4F46E5';
+                document.getElementById('secondary-color').value = this.settings.secondary_color || '#6B7280';
+                document.getElementById('secondary-color-hex').value = this.settings.secondary_color || '#6B7280';
+
+                if (this.settings.logo_url) {
+                    this.showCurrentLogo(this.settings.logo_url);
+                }
+
+                // システム設定
+                document.getElementById('maintenance-mode').checked = this.settings.maintenance_mode === 'true';
+                document.getElementById('maintenance-message').value = this.settings.maintenance_message || '';
+                document.getElementById('accept-inquiries').checked = this.settings.accept_inquiries !== 'false';
+                document.getElementById('auto-reply').checked = this.settings.auto_reply !== 'false';
+                document.getElementById('admin-notifications').checked = this.settings.admin_notifications !== 'false';
+                document.getElementById('allow-attachments').checked = this.settings.allow_attachments !== 'false';
+                document.getElementById('data-retention-days').value = this.settings.data_retention_days || '365';
+                document.getElementById('max-file-size').value = this.settings.max_file_size || '10';
+                document.getElementById('items-per-page').value = this.settings.items_per_page || '10';
+
+                // セキュリティ設定
+                document.getElementById('require-2fa').checked = this.settings.require_2fa === 'true';
+                document.getElementById('ip-restriction').checked = this.settings.ip_restriction === 'true';
+                document.getElementById('session-timeout').value = this.settings.session_timeout || '60';
+                document.getElementById('login-attempts').value = this.settings.login_attempts || '5';
+                document.getElementById('allowed-ips').value = this.settings.allowed_ips || '';
+
+                // バックアップ設定
+                document.getElementById('auto-backup').checked = this.settings.auto_backup !== 'false';
+                document.getElementById('backup-frequency').value = this.settings.backup_frequency || 'daily';
+                document.getElementById('backup-time').value = this.settings.backup_time || '02:00';
+                document.getElementById('backup-retention').value = this.settings.backup_retention || '7';
+
+                // 初期状態の表示制御
+                this.updateUI();
+            }
+
+            // UI状態更新
+            updateUI() {
+                // メンテナンスモード
+                const maintenanceMode = document.getElementById('maintenance-mode').checked;
+                const messageSection = document.getElementById('maintenance-message-section');
+                const notification = document.getElementById('maintenance-notification');
+                
+                if (maintenanceMode) {
+                    messageSection.classList.remove('hidden');
+                    notification.classList.remove('hidden');
+                } else {
+                    messageSection.classList.add('hidden');
+                    notification.classList.add('hidden');
+                }
+
+                // IP制限
+                const ipRestriction = document.getElementById('ip-restriction').checked;
+                const ipSection = document.getElementById('allowed-ips-section');
+                if (ipRestriction) {
+                    ipSection.classList.remove('hidden');
+                } else {
+                    ipSection.classList.add('hidden');
+                }
+
+                // 自動バックアップ
+                const autoBackup = document.getElementById('auto-backup').checked;
+                const scheduleSection = document.getElementById('backup-schedule-section');
+                scheduleSection.style.opacity = autoBackup ? '1' : '0.5';
+            }
+
+            // 基本情報保存
+            async saveBasicInfo() {
+                try {
+                    const settings = {
+                        site_name: document.getElementById('site-name').value,
+                        admin_name: document.getElementById('admin-name').value,
+                        site_description: document.getElementById('site-description').value,
+                        notification_email: document.getElementById('notification-email').value,
+                        timezone: document.getElementById('timezone').value,
+                        language: document.getElementById('language').value
+                    };
+
+                    await this.saveSettings(settings);
+                    alert('基本情報を保存しました。');
+
+                } catch (error) {
+                    console.error('基本情報保存エラー:', error);
+                    alert('基本情報の保存に失敗しました。');
+                }
+            }
+
+            // ブランディング保存
+            async saveBranding() {
+                try {
+                    const settings = {
+                        primary_color: document.getElementById('primary-color').value,
+                        secondary_color: document.getElementById('secondary-color').value
+                    };
+
+                    await this.saveSettings(settings);
+                    alert('ブランディング設定を保存しました。');
+
+                } catch (error) {
+                    console.error('ブランディング保存エラー:', error);
+                    alert('ブランディング設定の保存に失敗しました。');
+                }
+            }
+
+            // システム設定保存
+            async saveSystemSettings() {
+                try {
+                    const settings = {
+                        maintenance_mode: document.getElementById('maintenance-mode').checked.toString(),
+                        maintenance_message: document.getElementById('maintenance-message').value,
+                        accept_inquiries: document.getElementById('accept-inquiries').checked.toString(),
+                        auto_reply: document.getElementById('auto-reply').checked.toString(),
+                        admin_notifications: document.getElementById('admin-notifications').checked.toString(),
+                        allow_attachments: document.getElementById('allow-attachments').checked.toString(),
+                        data_retention_days: document.getElementById('data-retention-days').value,
+                        max_file_size: document.getElementById('max-file-size').value,
+                        items_per_page: document.getElementById('items-per-page').value
+                    };
+
+                    await this.saveSettings(settings);
+                    alert('システム設定を保存しました。');
+
+                } catch (error) {
+                    console.error('システム設定保存エラー:', error);
+                    alert('システム設定の保存に失敗しました。');
+                }
+            }
+
+            // セキュリティ設定保存
+            async saveSecuritySettings() {
+                try {
+                    const settings = {
+                        require_2fa: document.getElementById('require-2fa').checked.toString(),
+                        ip_restriction: document.getElementById('ip-restriction').checked.toString(),
+                        session_timeout: document.getElementById('session-timeout').value,
+                        login_attempts: document.getElementById('login-attempts').value,
+                        allowed_ips: document.getElementById('allowed-ips').value
+                    };
+
+                    await this.saveSettings(settings);
+                    alert('セキュリティ設定を保存しました。');
+
+                } catch (error) {
+                    console.error('セキュリティ設定保存エラー:', error);
+                    alert('セキュリティ設定の保存に失敗しました。');
+                }
+            }
+
+            // バックアップ設定保存
+            async saveBackupSettings() {
+                try {
+                    const settings = {
+                        auto_backup: document.getElementById('auto-backup').checked.toString(),
+                        backup_frequency: document.getElementById('backup-frequency').value,
+                        backup_time: document.getElementById('backup-time').value,
+                        backup_retention: document.getElementById('backup-retention').value
+                    };
+
+                    await this.saveSettings(settings);
+                    alert('バックアップ設定を保存しました。');
+
+                } catch (error) {
+                    console.error('バックアップ設定保存エラー:', error);
+                    alert('バックアップ設定の保存に失敗しました。');
+                }
+            }
+
+            // 設定保存（共通）
+            async saveSettings(newSettings) {
+                try {
+                    for (const [key, value] of Object.entries(newSettings)) {
+                        const { error } = await this.supabaseClient
+                            .from('system_settings')
+                            .upsert({
+                                key: key,
+                                value: value,
+                                updated_at: new Date().toISOString(),
+                                updated_by: this.currentUser.email
+                            });
+
+                        if (error) throw error;
+                    }
+
+                    // ローカル設定を更新
+                    Object.assign(this.settings, newSettings);
+                    this.isDirty = false;
+                    this.updateLastSaved();
+
+                } catch (error) {
+                    throw error;
+                }
+            }
+
+            // ロゴアップロード処理
+            handleLogoUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.processLogoFile(file);
+                }
+            }
+
+            // ロゴファイル処理
+            async processLogoFile(file) {
+                // ファイル形式チェック
+                if (!file.type.startsWith('image/')) {
+                    alert('画像ファイルを選択してください。');
+                    return;
+                }
+
+                // ファイルサイズチェック（2MB）
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('ファイルサイズは2MB以下にしてください。');
+                    return;
+                }
+
+                try {
+                    // Supabase Storageにアップロード
+                    const fileName = `logo_${Date.now()}.${file.name.split('.').pop()}`;
+                    const { data, error } = await this.supabaseClient.storage
+                        .from('logos')
+                        .upload(fileName, file);
+
+                    if (error) throw error;
+
+                    const { data: { publicUrl } } = this.supabaseClient.storage
+                        .from('logos')
+                        .getPublicUrl(fileName);
+
+                    // 設定に保存
+                    await this.saveSettings({ logo_url: publicUrl });
+                    this.showCurrentLogo(publicUrl);
+                    alert('ロゴをアップロードしました。');
+
+                } catch (error) {
+                    console.error('ロゴアップロードエラー:', error);
+                    alert('ロゴのアップロードに失敗しました。');
+                }
+            }
+
+            // 現在のロゴ表示
+            showCurrentLogo(url) {
+                const currentLogo = document.getElementById('current-logo');
+                const noLogo = document.getElementById('no-logo');
+                const removeBtn = document.getElementById('remove-logo');
+
+                currentLogo.src = url;
+                currentLogo.classList.remove('hidden');
+                noLogo.classList.add('hidden');
+                removeBtn.classList.remove('hidden');
+            }
+
+            // ロゴ削除
+            async removeLogo() {
+                if (!confirm('ロゴを削除しますか？')) return;
+
+                try {
+                    await this.saveSettings({ logo_url: '' });
+                    
+                    const currentLogo = document.getElementById('current-logo');
+                    const noLogo = document.getElementById('no-logo');
+                    const removeBtn = document.getElementById('remove-logo');
+
+                    currentLogo.classList.add('hidden');
+                    noLogo.classList.remove('hidden');
+                    removeBtn.classList.add('hidden');
+
+                    alert('ロゴを削除しました。');
+
+                } catch (error) {
+                    console.error('ロゴ削除エラー:', error);
+                    alert('ロゴの削除に失敗しました。');
+                }
+            }
+
+            // バックアップ作成
+            async createBackup() {
+                try {
+                    // 実際の実装では、サーバーサイドでバックアップを作成
+                    alert('バックアップを作成中です...\n（実際の実装では、サーバーサイドでデータベースのバックアップを作成します）');
+                    
+                    // ダミーデータでバックアップリスト更新
+                    this.updateBackupList();
+
+                } catch (error) {
+                    console.error('バックアップ作成エラー:', error);
+                    alert('バックアップの作成に失敗しました。');
+                }
+            }
+
+            // バックアップリスト更新
+            updateBackupList() {
+                const backupList = document.getElementById('backup-list');
+                const now = new Date();
+                const timestamp = now.toISOString().slice(0, 16).replace('T', '_').replace(':', '');
+                
+                backupList.innerHTML = `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">backup_${timestamp}.sql</p>
+                            <p class="text-xs text-gray-500">${now.toLocaleString('ja-JP')} - 手動バックアップ - 2.5MB</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="text-blue-600 hover:text-blue-800 text-sm">
+                                <i class="fas fa-download mr-1"></i>ダウンロード
+                            </button>
+                            <button class="text-green-600 hover:text-green-800 text-sm">
+                                <i class="fas fa-undo mr-1"></i>復元
+                            </button>
+                            <button class="text-red-600 hover:text-red-800 text-sm">
+                                <i class="fas fa-trash mr-1"></i>削除
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 最終保存時刻更新
+            updateLastSaved() {
+                const now = new Date();
+                document.getElementById('last-saved-time').textContent = now.toLocaleString('ja-JP');
+            }
+
+            // ログアウト
+            async handleLogout() {
+                if (this.isDirty) {
+                    if (!confirm('変更が保存されていません。ログアウトしますか？')) return;
+                }
+
+                try {
+                    const { error } = await this.supabaseClient.auth.signOut();
+                    if (error) throw error;
+                    window.location.href = '../login.html';
+                } catch (error) {
+                    console.error('ログアウトエラー:', error);
+                    alert('ログアウトに失敗しました。');
+                }
+            }
+        }
+
+        // アプリケーション初期化
+        const settingsApp = new GeneralSettingsApp();
+        window.addEventListener('load', () => {
+            settingsApp.initialize();
+        });
+    </script>
+</body>
+</html>
+

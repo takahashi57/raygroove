@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お問い合わせ | RayGroove</title>
+    <link href="/assets/css/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --main-bg-color: #060d1f;
+            --secondary-bg-color: #0c1631;
+            --accent-color: #4e6fff;
+            --neon-color: #7d4dff;
+            --text-color: #ffffff;
+            --text-secondary: #a0aec0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--main-bg-color);
+            color: var(--text-color);
+            font-family: 'Noto Sans JP', 'Roboto', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            flex: 1;
+            width: 100%;
+        }
+        
+        .form-panel {
+            background-color: rgba(12, 22, 49, 0.7);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(78, 111, 255, 0.1);
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+        
+        .form-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            text-align: center;
+            background: linear-gradient(90deg, #ffffff, #7d4dff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(125, 77, 255, 0.5);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        select.form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7' /%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.25rem;
+            padding-right: 2.5rem;
+        }
+        
+        select.form-control option {
+            background-color: #0c1631;
+            color: white;
+            padding: 0.5rem;
+        }
+        
+        select.form-control option:checked {
+            background-color: #4e6fff;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(78, 111, 255, 0.3);
+        }
+        
+        textarea.form-control {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        .btn-submit {
+            display: inline-block;
+            background: linear-gradient(135deg, #4e6fff, #7d4dff);
+            color: white;
+            font-weight: bold;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-align: center;
+            width: 100%;
+            max-width: 300px;
+            margin: 2rem auto 0;
+            display: block;
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(78, 111, 255, 0.4);
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-top: 1.5rem;
+            transition: color 0.3s ease;
+        }
+        
+        .back-link:hover {
+            color: var(--accent-color);
+        }
+        
+        .required::after {
+            content: " *";
+            color: #f56565;
+        }
+        
+        .form-note {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">
+            <i class="fas fa-arrow-left mr-2"></i>トップに戻る
+        </a>
+        
+        <div class="form-panel">
+            <h1 class="form-title">お問い合わせ・お見積り</h1>
+            
+            <form id="contactForm" action="https://formspree.io/f/meokjzbv" method="POST" onsubmit="return submitForm(event);">
+                <div class="form-group">
+                    <label for="company" class="form-label">会社名・団体名</label>
+                    <input type="text" id="company" name="company" class="form-control" placeholder="株式会社〇〇">
+                </div>
+                
+                <div class="form-group">
+                    <label for="name" class="form-label">お名前 <span class="required"></span></label>
+                    <input type="text" id="name" name="name" class="form-control" required placeholder="山田 太郎">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">メールアドレス <span class="required"></span></label>
+                    <input type="email" id="email" name="email" class="form-control" required placeholder="example@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone" class="form-label">電話番号</label>
+                    <input type="tel" id="phone" name="phone" class="form-control" placeholder="03-1234-5678">
+                </div>
+                
+                <div class="form-group">
+                    <label for="inquiry_type" class="form-label">お問い合わせ内容 <span class="required"></span></label>
+                    <select id="inquiry_type" name="inquiry_type" class="form-control" required>
+                        <option value="">-- 選択してください --</option>
+                        <option value="ドローンショー開催">ドローンショー開催</option>
+                        <option value="イベントのご紹介">イベントのご紹介</option>
+                        <option value="スポンサー・協賛に関して">スポンサー・協賛に関して</option>
+                        <option value="採用に関して">採用に関して</option>
+                        <option value="その他">その他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="event_date" class="form-label">イベント予定日時</label>
+                    <input type="text" id="event_date" name="event_date" class="form-control" placeholder="2025年〇月〇日 〇〇:〇〇〜">
+                    <p class="form-note">※イベントの予定日時が決まっている場合、ご記入ください</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="location" class="form-label">イベント開催予定地</label>
+                    <input type="text" id="location" name="location" class="form-control" placeholder="東京都新宿区〇〇">
+                </div>
+                
+                <!-- 希望ドローン機数セクションをコメントアウト
+                <div class="form-group">
+                    <label for="drone_count" class="form-label">希望ドローン機数</label>
+                    <select id="drone_count" name="drone_count" class="form-control">
+                        <option value="">-- 選択してください --</option>
+                        <option value="50">50機以下</option>
+                        <option value="100">100機</option>
+                        <option value="200">200機</option>
+                        <option value="300">300機</option>
+                        <option value="400">400機</option>
+                        <option value="500">500機以上</option>
+                        <option value="other">その他・要相談</option>
+                    </select>
+                </div>
+                -->
+                
+                <div class="form-group">
+                    <label for="budget" class="form-label">ご予算の目安</label>
+                    <select id="budget" name="budget" class="form-control">
+                        <option value="">-- 選択してください --</option>
+                        <option value="0-300">0〜300万円</option>
+                        <option value="300-600">300〜600万円</option>
+                        <option value="600-1000">600〜1,000万円</option>
+                        <option value="1000-1500">1,000〜1,500万円</option>
+                        <option value="1500-2000">1,500〜2,000万円</option>
+                        <option value="2000-4000">2,000〜4,000万円</option>
+                        <option value="4000-">4,000万円〜</option>
+                        <option value="other">その他・要相談</option>
+                    </select>
+                </div>
+               <!-- 希望ドローン機数セクションをコメントアウト 
+                <div class="form-group">
+                    <label for="referrer" class="form-label">ご紹介者</label>
+                    <input type="text" id="referrer" name="referrer" class="form-control" placeholder="ご紹介者がいらっしゃる場合はご記入ください">
+                    <p class="form-note">※ご紹介者がいらっしゃる場合は、お名前・会社名・ご担当者名などをご記入ください</p>
+                </div>
+                -->
+                
+                <div class="form-group">
+                    <label for="message" class="form-label">ご相談内容・ご要望 <span class="required"></span></label>
+                    <textarea id="message" name="message" class="form-control" required placeholder="イベントの目的やご要望、ご質問など、お気軽にご記入ください。"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">個人情報の取り扱いについて</label>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
+                        <p style="font-size: 0.8rem; line-height: 1.5; margin: 0;">
+                            当社は、お客様からお預かりした個人情報を適切に管理し、お問い合わせへの対応、ご案内の送付、サービス向上のための調査・分析、および法令等に基づく開示の際に利用いたします。
+                            個人情報の取り扱いに関する詳細は、当社のプライバシーポリシーをご覧ください。
+                        </p>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="privacy_policy" name="privacy_policy" class="mr-2" required>
+                        <label for="privacy_policy" style="font-size: 0.9rem;">個人情報の取り扱いに同意する <span class="required"></span></label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-submit">
+                    送信する
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        function submitForm(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            
+            // 送信中表示
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 送信中...';
+            
+            // Formspreeに送信
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // 送信成功
+                    alert('お問い合わせありがとうございます。\n内容を確認の上、2営業日以内にご連絡いたします。');
+                    form.reset();
+                    // 3秒後にトップページにリダイレクト
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 3000);
+                } else {
+                    throw new Error('Network response was not ok');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('エラーが発生しました。\nしばらくしてからもう一度お試しください。');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            });
+            
+            return false;
+        }
+        
+        // フォームの各フィールドにname属性を設定
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('contactForm');
+            const fields = {
+                'company': '会社名',
+                'name': 'お名前',
+                'email': 'メールアドレス',
+                'phone': '電話番号',
+                'inquiry_type': 'お問い合わせ内容',
+                'event_date': 'イベント予定日時',
+                'location': 'イベント開催予定地',
+                'budget': 'ご予算の目安',
+                'message': 'ご相談内容・ご要望'
+            };
+            
+            // 既存のフィールドにname属性を設定
+            Object.keys(fields).forEach(name => {
+                const element = form.querySelector(`[id="${name}"]`);
+                if (element) {
+                    element.name = name;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
