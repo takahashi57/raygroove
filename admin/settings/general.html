@@ -6,6 +6,7 @@ settings/general.html
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>基本設定 - お問い合わせ管理システム</title>
+    <link rel="stylesheet" href="../assets/css/mobile-optimize.css">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -86,8 +87,16 @@ settings/general.html
             object-fit: contain;
         }
     </style>
+    
+    <link rel="stylesheet" href="../assets/css/mobile-optimize.css">
 </head>
 <body class="bg-gray-100">
+
+    <!-- モバイル用メニューボタン -->
+    <button class="menu-toggle md:hidden" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="overlay" id="overlay"></div>
     <div class="flex h-screen">
         <!-- サイドバー -->
         <div class="w-64 bg-gray-800 text-white">
@@ -1038,6 +1047,7 @@ settings/general.html
             settingsApp.initialize();
         });
     </script>
+    
+    <script src="/admin/assets/js/mobile-menu.js"></script>
 </body>
 </html>
-

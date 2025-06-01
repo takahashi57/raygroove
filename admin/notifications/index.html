@@ -222,8 +222,16 @@
             background-color: #f0fdf4;
         }
     </style>
+    
+    <link rel="stylesheet" href="/admin/assets/css/mobile-optimize.css">
 </head>
 <body class="bg-gray-100">
+
+    <!-- モバイル用メニューボタン -->
+    <button class="menu-toggle md:hidden" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="overlay" id="overlay"></div>
     <!-- リアルタイム通知センター -->
     <div id="notification-center" class="notification-center hidden">
         <!-- 通知トーストがここに動的に追加される -->
@@ -1579,5 +1587,7 @@
 
         window.app = app;
     </script>
-  </body>
+      
+    <script src="/admin/assets/js/mobile-menu.js"></script>
+</body>
 </html>

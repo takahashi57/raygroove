@@ -60,8 +60,16 @@
             transform: scale(1.02);
         }
     </style>
+    
+    <link rel="stylesheet" href="/admin/assets/css/mobile-optimize.css">
 </head>
 <body class="bg-gray-100">
+
+    <!-- モバイル用メニューボタン -->
+    <button class="menu-toggle md:hidden" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="overlay" id="overlay"></div>
     <!-- エラー通知バナー -->
     <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-2 text-center z-50">
         <span id="error-message"></span>
@@ -1084,5 +1092,7 @@
             document.getElementById('success-banner').classList.add('hidden');
         };
     </script>
+    
+    <script src="/admin/assets/js/mobile-menu.js"></script>
 </body>
 </html>

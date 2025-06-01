@@ -7,8 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <link rel="stylesheet" href="/admin/assets/css/mobile-optimize.css">
 </head>
 <body class="bg-gray-50">
+
+    <!-- モバイル用メニューボタン -->
+    <button class="menu-toggle md:hidden" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="overlay" id="overlay"></div>
     <!-- サイドバー -->
     <div class="flex">
         <aside class="w-64 bg-slate-800 text-white min-h-screen fixed left-0 top-0 z-10">
@@ -859,6 +867,8 @@
             actionLogManager = new ActionLogManager();
         });
     </script>
+    
+    <script src="/admin/assets/js/mobile-menu.js"></script>
 </body>
 </html>gray-600 mt-2">システム内の全操作記録を監査・追跡</p>
                 </div>

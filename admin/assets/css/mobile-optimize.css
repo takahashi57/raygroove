@@ -1,0 +1,115 @@
+/* Mobile Optimization Styles */
+@media (max-width: 1024px) {
+    /* サイドバーの調整 */
+    .w-64 {
+        width: 240px;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        position: fixed;
+        height: 100%;
+        z-index: 50;
+        overflow-y: auto;
+    }
+    
+    /* メニューを開いた状態 */
+    .w-64.open {
+        transform: translateX(0);
+        box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+    }
+    
+    /* メインコンテンツの調整 */
+    .flex-1 {
+        margin-left: 0 !important;
+        width: 100%;
+        padding-top: 56px; /* ヘッダーの高さ分 */
+    }
+    
+    /* ヘッダーを固定 */
+    header {
+        position: fixed;
+        top: 0;
+        right: 0;
+        left: 0;
+        z-index: 40;
+        padding: 0.75rem 1rem;
+    }
+    
+    /* メニューボタン */
+    .menu-toggle {
+        display: block !important;
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 60;
+        background: rgba(31, 41, 55, 0.8);
+        border-radius: 4px;
+        padding: 8px;
+        color: white;
+        border: none;
+    }
+    
+    /* オーバーレイ */
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 45;
+    }
+    
+    .overlay.active {
+        display: block;
+    }
+    
+    /* テーブルの調整 */
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* カードの余白調整 */
+    .p-4 {
+        padding: 0.75rem;
+    }
+    
+    /* フォーム要素の調整 */
+    input, select, textarea, button {
+        font-size: 16px; /* iOSでズームを防ぐ */
+    }
+    
+    /* ログインページの調整 */
+    .login-container {
+        padding: 1rem;
+    }
+    
+    /* ヘルプページの調整 */
+    .help-sidebar {
+        position: static !important;
+        width: 100% !important;
+        margin-bottom: 1.5rem;
+    }
+    
+    .help-content {
+        width: 100%;
+    }
+}
+
+/* タブレットサイズの調整 */
+@media (min-width: 641px) and (max-width: 1024px) {
+    .w-64 {
+        width: 240px;
+    }
+}
+
+/* メニューボタンのスタイル */
+.menu-toggle {
+    display: none;
+    cursor: pointer;
+}
+
+/* オーバーレイ */
+.overlay {
+    display: none;
+}

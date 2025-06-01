@@ -13,8 +13,16 @@
         // グローバルに使えるように設定
         window.dateFns = { format, parseISO };
     </script>
+    
+    <link rel="stylesheet" href="/admin/assets/css/mobile-optimize.css">
 </head>
 <body class="bg-gray-50">
+
+    <!-- モバイル用メニューボタン -->
+    <button class="menu-toggle md:hidden" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="overlay" id="overlay"></div>
     <!-- サイドバー -->
     <div class="flex">
         <aside class="w-64 bg-slate-800 text-white min-h-screen fixed left-0 top-0 z-10">
@@ -879,5 +887,7 @@
             accessLogManager = new AccessLogManager();
         });
     </script>
+    
+    <script src="/admin/assets/js/mobile-menu.js"></script>
 </body>
 </html>
