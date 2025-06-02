@@ -131,28 +131,69 @@
                 <h1 class="text-xl font-bold">管理画面</h1>
                 <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
             </div>
-            <nav class="mt-4">
-                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-tachometer-alt mr-3"></i> ダッシュボード
-                </a>
-                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    システム管理
+            <nav class="mt-4 space-y-1">
+                <!-- ダッシュボード -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ダッシュボード</div>
+                    <a href="../index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-tachometer-alt w-5 mr-3 text-center"></i> ダッシュボード
+                    </a>
                 </div>
-                <a href="../logs/access.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-chart-line mr-3"></i> アクセスログ
-                </a>
-                <a href="../logs/actions.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-history mr-3"></i> 操作ログ
-                </a>
-                <a href="../backup/index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-hdd mr-3"></i> バックアップ
-                </a>
-                <a href="keys.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
-                    <i class="fas fa-key mr-3"></i> API管理
-                </a>
-                <a href="../help/" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-question-circle mr-3"></i> ヘルプ
-                </a>
+
+                <!-- お問い合わせ管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">お問い合わせ管理</div>
+                    <a href="../contacts.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-envelope w-5 mr-3 text-center"></i> お問い合わせ一覧
+                    </a>
+                </div>
+
+                <!-- ユーザー管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ユーザー管理</div>
+                    <a href="../users/" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-users w-5 mr-3 text-center"></i> ユーザー一覧
+                    </a>
+                </div>
+
+                <!-- 設定 -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">設定</div>
+                    <a href="../settings/general.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-cog w-5 mr-3 text-center"></i> 一般設定
+                    </a>
+                    <a href="../settings/email.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-envelope w-5 mr-3 text-center"></i> メール設定
+                    </a>
+                    <a href="keys.html" class="flex items-center px-4 py-2 text-sm text-white bg-gray-700">
+                        <i class="fas fa-key w-5 mr-3 text-center"></i> APIキー管理
+                    </a>
+                </div>
+
+                <!-- システム管理 -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">システム管理</div>
+                    <a href="../logs/access.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> アクセスログ
+                    </a>
+                    <a href="../logs/actions.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-history w-5 mr-3 text-center"></i> 操作ログ
+                    </a>
+                    <a href="../backup/" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-hdd w-5 mr-3 text-center"></i> バックアップ管理
+                    </a>
+                </div>
+
+                <!-- ヘルプ -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ヘルプ</div>
+                    <a href="../help/manual.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-book w-5 mr-3 text-center"></i> マニュアル
+                    </a>
+                    <a href="../help/contact.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-question-circle w-5 mr-3 text-center"></i> お問い合わせ
+                    </a>
+                </div>
             </nav>
         </div>
 
@@ -1437,7 +1478,52 @@
             document.getElementById('success-banner').classList.add('hidden');
         };
     </script>
-    
-    <script src="../assets/js/mobile-menu.js"></script>
+
+    <script>
+        // モバイルメニューの開閉
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.w-64');
+            const overlay = document.getElementById('overlay');
+            
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('open');
+                    overlay.classList.toggle('active');
+                    document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+                });
+                
+                overlay.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                });
+                
+                // メニュー項目をクリックしたらメニューを閉じる
+                const menuItems = sidebar.querySelectorAll('a');
+                menuItems.forEach(item => {
+                    item.addEventListener('click', function() {
+                        if (window.innerWidth <= 1024) {
+                            sidebar.classList.remove('open');
+                            overlay.classList.remove('active');
+                            document.body.style.overflow = '';
+                        }
+                    });
+                });
+            }
+            
+            // リサイズ時にメニューをリセット
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 1024) {
+                    const sidebar = document.querySelector('.w-64');
+                    const overlay = document.getElementById('overlay');
+                    if (sidebar) sidebar.classList.remove('open');
+                    if (overlay) overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+    </script>
 </body>
 </html>
