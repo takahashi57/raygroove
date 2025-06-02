@@ -97,38 +97,189 @@
         }
     </style>
     
-    <link rel="stylesheet" href="/admin/assets/css/mobile-optimize.css">
+    <!-- モバイル最適化スタイル -->
+    <style>
+        @media (max-width: 1024px) {
+            /* サイドバーの幅を調整 */
+            .w-64 {
+                width: 240px;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+                position: fixed;
+                height: 100%;
+                z-index: 50;
+                overflow-y: auto;
+                left: 0;
+                top: 0;
+            }
+            
+            /* メニューを開いた状態 */
+            .w-64.open {
+                transform: translateX(0);
+                box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+            }
+            
+            /* メインコンテンツの調整 */
+            .flex-1 {
+                margin-left: 0;
+                width: 100%;
+                padding-top: 56px; /* ヘッダーの高さ分 */
+            }
+            
+            /* ヘッダーを固定 */
+            header {
+                position: fixed;
+                top: 0;
+                right: 0;
+                left: 0;
+                z-index: 40;
+                padding: 0.75rem 1rem;
+            }
+            
+            /* メニューボタン */
+            .menu-toggle {
+                display: block;
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                z-index: 60;
+                background: rgba(31, 41, 55, 0.8);
+                border-radius: 4px;
+                padding: 8px;
+                color: white;
+                border: none;
+            }
+            
+            /* オーバーレイ */
+            .overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 45;
+            }
+            
+            .overlay.active {
+                display: block;
+            }
+        }
+        
+        /* タブレットサイズの調整 */
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .w-64 {
+                width: 240px;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
+    <!-- エラー通知バナー -->
+    <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-2 text-center z-50">
+        <span id="error-message"></span>
+        <button onclick="hideErrorBanner()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- 接続状態インジケーター -->
+    <div id="connection-status" class="hidden fixed top-0 right-4 bg-yellow-500 text-white px-3 py-1 rounded-b text-sm z-40">
+        <i class="fas fa-wifi"></i> 接続を確認中...
+    </div>
 
     <!-- モバイル用メニューボタン -->
     <button class="menu-toggle md:hidden" id="menuToggle">
         <i class="fas fa-bars"></i>
     </button>
-    <div class="overlay" id="overlay"></div>
-    <div class="flex h-screen">
+    
+    <!-- モバイル用オーバーレイ -->
+    <div class="overlay" id="mobileOverlay"></div>
+    
+    <div class="flex h-screen overflow-hidden">
         <!-- サイドバー -->
         <div class="w-64 bg-gray-800 text-white">
             <div class="p-4 border-b border-gray-700">
                 <h1 class="text-xl font-bold">管理画面</h1>
                 <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
             </div>
-            <nav class="mt-4">
-                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-inbox mr-3"></i> お問い合わせ一覧
-                </a>
-                <div class="px-4 py-2">
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">設定</p>
+            <nav class="mt-4 space-y-1">
+                <!-- ダッシュボード -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ダッシュボード</div>
+                    <a href="../index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-tachometer-alt w-5 mr-3 text-center"></i> ダッシュボード
+                    </a>
                 </div>
-                <a href="general.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-cog mr-3"></i> 基本設定
-                </a>
-                <a href="email.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
-                    <i class="fas fa-envelope mr-3"></i> メール設定
-                </a>
-                <a href="#" id="logout-btn" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-sign-out-alt mr-3"></i> ログアウト
-                </a>
+
+                <!-- ユーザー管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ユーザー管理</div>
+                    <a href="../users/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-users w-5 mr-3 text-center"></i> ユーザー一覧/追加
+                    </a>
+                </div>
+
+                <!-- 設定 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">設定</div>
+                    <a href="general.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-cog w-5 mr-3 text-center"></i> 基本設定
+                    </a>
+                    <a href="email.html" class="flex items-center px-4 py-2 text-sm text-white bg-gray-700">
+                        <i class="fas fa-envelope w-5 mr-3 text-center"></i> メール設定
+                    </a>
+                    <a href="../api/keys.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-key w-5 mr-3 text-center"></i> APIキー管理
+                    </a>
+                </div>
+
+                <!-- システム管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">システム管理</div>
+                    <a href="../logs/access.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> アクセスログ
+                    </a>
+                    <a href="../logs/actions.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-history w-5 mr-3 text-center"></i> 操作ログ
+                    </a>
+                    <a href="../reports/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> レポート
+                    </a>
+                    <a href="../notifications/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-bell w-5 mr-3 text-center"></i> 通知設定
+                    </a>
+                </div>
+
+                <!-- バックアップ -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">バックアップ</div>
+                    <a href="../backup/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-database w-5 mr-3 text-center"></i> バックアップ管理
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-undo w-5 mr-3 text-center"></i> リストア
+                    </a>
+                </div>
+
+                <!-- ヘルプ -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ヘルプ</div>
+                    <a href="../help/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-book w-5 mr-3 text-center"></i> マニュアル
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-question-circle w-5 mr-3 text-center"></i> お問い合わせ
+                    </a>
+                </div>
+
+                <!-- ログアウト -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <a href="#" id="logout-btn" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-sign-out-alt w-5 mr-3 text-center"></i> ログアウト
+                    </a>
+                </div>
             </nav>
         </div>
 
@@ -1170,6 +1321,51 @@
         });
     </script>
     
-    <script src="/admin/assets/js/mobile-menu.js"></script>
+    <script>
+        // モバイルメニューの開閉
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.w-64');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            if (menuToggle && sidebar && overlay) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('open');
+                    overlay.classList.toggle('active');
+                    document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+                });
+                
+                overlay.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                });
+                
+                // メニュー項目をクリックしたらメニューを閉じる
+                const menuItems = sidebar.querySelectorAll('a');
+                menuItems.forEach(item => {
+                    item.addEventListener('click', function() {
+                        if (window.innerWidth <= 1024) {
+                            sidebar.classList.remove('open');
+                            overlay.classList.remove('active');
+                            document.body.style.overflow = '';
+                        }
+                    });
+                });
+            }
+            
+            // リサイズ時にメニューをリセット
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 1024) {
+                    const sidebar = document.querySelector('.w-64');
+                    const overlay = document.getElementById('mobileOverlay');
+                    if (sidebar) sidebar.classList.remove('open');
+                    if (overlay) overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+    </script>
 </body>
 </html>
