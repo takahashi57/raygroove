@@ -88,37 +88,187 @@ settings/general.html
         }
     </style>
     
-    <link rel="stylesheet" href="../assets/css/mobile-optimize.css">
+    <!-- モバイル最適化スタイル -->
+    <style>
+        @media (max-width: 1024px) {
+            /* サイドバーの幅を調整 */
+            .w-64 {
+                width: 240px;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                position: fixed;
+                height: 100%;
+                z-index: 50;
+                overflow-y: auto;
+            }
+            
+            /* メニューを開いた状態 */
+            .w-64.open {
+                transform: translateX(0);
+                box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+            }
+            
+            /* メインコンテンツの調整 */
+            .flex-1 {
+                margin-left: 0;
+                width: 100%;
+                padding-top: 56px; /* ヘッダーの高さ分 */
+            }
+            
+            /* ヘッダーを固定 */
+            header {
+                position: fixed;
+                top: 0;
+                right: 0;
+                left: 0;
+                z-index: 40;
+                padding: 0.75rem 1rem;
+            }
+            
+            /* メニューボタン */
+            .menu-toggle {
+                display: block;
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                z-index: 60;
+                background: rgba(31, 41, 55, 0.8);
+                border-radius: 4px;
+                padding: 8px;
+                color: white;
+                border: none;
+            }
+            
+            /* オーバーレイ */
+            .overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 45;
+            }
+            
+            .overlay.active {
+                display: block;
+            }
+        }
+        
+        /* タブレットサイズの調整 */
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .w-64 {
+                width: 240px;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
+    <!-- エラー通知バナー -->
+    <div id="error-banner" class="hidden fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-2 text-center z-50">
+        <span id="error-message"></span>
+        <button onclick="hideErrorBanner()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- 接続状態インジケーター -->
+    <div id="connection-status" class="hidden fixed top-0 right-4 bg-yellow-500 text-white px-3 py-1 rounded-b text-sm z-40">
+        <i class="fas fa-wifi"></i> 接続を確認中...
+    </div>
 
     <!-- モバイル用メニューボタン -->
     <button class="menu-toggle md:hidden" id="menuToggle">
         <i class="fas fa-bars"></i>
     </button>
-    <div class="overlay" id="overlay"></div>
-    <div class="flex h-screen">
+    
+    <!-- モバイル用オーバーレイ -->
+    <div class="overlay" id="mobileOverlay"></div>
+    
+    <div class="flex h-screen overflow-hidden">
         <!-- サイドバー -->
         <div class="w-64 bg-gray-800 text-white">
             <div class="p-4 border-b border-gray-700">
                 <h1 class="text-xl font-bold">管理画面</h1>
                 <p class="text-sm text-gray-400">お問い合わせ管理システム</p>
             </div>
-            <nav class="mt-4">
-                <a href="../index.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-inbox mr-3"></i> お問い合わせ一覧
-                <div class="px-4 py-2">
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">設定</p>
+            <nav class="mt-4 space-y-1">
+                <!-- ダッシュボード -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ダッシュボード</div>
+                    <a href="../index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-tachometer-alt w-5 mr-3 text-center"></i> ダッシュボード
+                    </a>
                 </div>
-                <a href="general.html" class="flex items-center px-4 py-3 text-white bg-gray-700">
-                    <i class="fas fa-cog mr-3"></i> 基本設定
-                </a>
-                <a href="email.html" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-envelope mr-3"></i> メール設定
-                </a>
-                <a href="#" id="logout-btn" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700">
-                    <i class="fas fa-sign-out-alt mr-3"></i> ログアウト
-                </a>
+
+                <!-- ユーザー管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ユーザー管理</div>
+                    <a href="../users/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-users w-5 mr-3 text-center"></i> ユーザー一覧/追加
+                    </a>
+                </div>
+
+                <!-- 設定 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">設定</div>
+                    <a href="general.html" class="flex items-center px-4 py-2 text-sm text-white bg-gray-700">
+                        <i class="fas fa-cog w-5 mr-3 text-center"></i> 基本設定
+                    </a>
+                    <a href="email.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-envelope w-5 mr-3 text-center"></i> メール設定
+                    </a>
+                    <a href="../api/keys.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-key w-5 mr-3 text-center"></i> APIキー管理
+                    </a>
+                </div>
+
+                <!-- システム管理 -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">システム管理</div>
+                    <a href="../logs/access.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> アクセスログ
+                    </a>
+                    <a href="../logs/actions.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-history w-5 mr-3 text-center"></i> 操作ログ
+                    </a>
+                    <a href="../reports/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-clipboard-list w-5 mr-3 text-center"></i> レポート
+                    </a>
+                    <a href="../notifications/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-bell w-5 mr-3 text-center"></i> 通知設定
+                    </a>
+                </div>
+
+                <!-- バックアップ -->
+                <div>
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">バックアップ</div>
+                    <a href="../backup/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-database w-5 mr-3 text-center"></i> バックアップ管理
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-undo w-5 mr-3 text-center"></i> リストア
+                    </a>
+                </div>
+
+                <!-- ヘルプ -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">ヘルプ</div>
+                    <a href="../help/index.html" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-book w-5 mr-3 text-center"></i> マニュアル
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-question-circle w-5 mr-3 text-center"></i> お問い合わせ
+                    </a>
+                </div>
+
+                <!-- ログアウト -->
+                <div class="pt-4 mt-4 border-t border-gray-700">
+                    <a href="#" id="logout-btn" class="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                        <i class="fas fa-sign-out-alt w-5 mr-3 text-center"></i> ログアウト
+                    </a>
+                </div>
             </nav>
         </div>
 
@@ -131,9 +281,51 @@ settings/general.html
                         <p class="text-sm text-gray-600">システムの基本情報・動作設定</p>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <span id="user-email" class="text-sm text-gray-600">読み込み中...</span>
-                        <div class="text-xs text-gray-500" id="last-saved">
+                        <!-- 最終保存時刻 -->
+                        <div class="text-xs text-gray-500 hidden md:block" id="last-saved">
                             最終保存: <span id="last-saved-time">-</span>
+                        </div>
+                        
+                        <!-- 通知ボタン -->
+                        <div class="relative">
+                            <button type="button" class="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                <span class="sr-only">通知を表示</span>
+                                <div class="relative">
+                                    <i class="far fa-bell text-xl"></i>
+                                    <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                                </div>
+                            </button>
+                            <!-- 通知ドロップダウン（デフォルト非表示） -->
+                            <div class="hidden origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" role="menu" aria-orientation="vertical" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                                        <div class="flex justify-between items-center">
+                                            <span>通知一覧</span>
+                                            <button class="text-xs text-indigo-600 hover:text-indigo-800">すべて既読にする</button>
+                                        </div>
+                                    </div>
+                                    <div class="px-4 py-3 text-sm text-gray-500 text-center">
+                                        新しい通知はありません
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- プロフィールドロップダウン -->
+                        <div class="relative ml-3">
+                            <div>
+                                <button type="button" class="max-w-xs bg-white flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" id="user-menu-button" aria-expanded="false" aria-haspopup="true">
+                                    <span class="sr-only">ユーザーメニューを開く</span>
+                                    <span class="text-sm text-gray-700 mr-2" id="user-email">読み込み中...</span>
+                                    <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name=User&background=4f46e5&color=fff" alt="" id="user-avatar">
+                                </button>
+                            </div>
+                            <!-- ドロップダウンメニュー -->
+                            <div class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-labelledby="user-menu-button" tabindex="-1">
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-0">プロフィール</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-1">設定</a>
+                                <a href="#" id="logout-btn-dropdown" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-2">ログアウト</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -515,6 +707,198 @@ settings/general.html
     </div>
 
     <script>
+        // グローバル関数: エラーバナーを表示
+        function showErrorBanner(message) {
+            const banner = document.getElementById('error-banner');
+            const messageElement = document.getElementById('error-message');
+            messageElement.textContent = message;
+            banner.classList.remove('hidden');
+        }
+
+        // グローバル関数: エラーバナーを非表示
+        function hideErrorBanner() {
+            const banner = document.getElementById('error-banner');
+            banner.classList.add('hidden');
+        }
+
+        // ドキュメント読み込み完了後
+        document.addEventListener('DOMContentLoaded', function() {
+            // モバイルメニュートグル
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.w-64');
+            const overlay = document.getElementById('mobileOverlay');
+            const dropdownButtons = document.querySelectorAll('[data-dropdown-toggle]');
+            
+            // モバイルメニューの表示/非表示
+            if (menuToggle && sidebar && overlay) {
+                menuToggle.addEventListener('click', () => {
+                    sidebar.classList.toggle('open');
+                    overlay.classList.toggle('active');
+                    document.body.classList.toggle('overflow-hidden');
+                });
+
+                // オーバーレイをクリックでメニューを閉じる
+                overlay.addEventListener('click', () => {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                    document.body.classList.remove('overflow-hidden');
+                });
+
+                // メニュー内のリンクをクリックしたらメニューを閉じる（モバイルのみ）
+                const menuLinks = sidebar.querySelectorAll('a');
+                menuLinks.forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth < 1024) { // モバイルサイズのときのみ
+                            sidebar.classList.remove('open');
+                            overlay.classList.remove('active');
+                            document.body.classList.remove('overflow-hidden');
+                        }
+                    });
+                });
+            }
+
+
+            // ドロップダウンメニューのトグル
+            document.addEventListener('click', function(event) {
+                // ユーザーメニュードロップダウン
+                const userMenuButton = document.getElementById('user-menu-button');
+                const userMenu = userMenuButton?.nextElementSibling;
+                
+                if (userMenuButton && userMenu) {
+                    if (event.target === userMenuButton || userMenuButton.contains(event.target)) {
+                        // ユーザーメニューボタンがクリックされたらトグル
+                        const isExpanded = userMenuButton.getAttribute('aria-expanded') === 'true';
+                        userMenuButton.setAttribute('aria-expanded', !isExpanded);
+                        userMenu.classList.toggle('hidden');
+                    } else if (!userMenu.contains(event.target)) {
+                        // メニュー外がクリックされたら閉じる
+                        userMenuButton.setAttribute('aria-expanded', 'false');
+                        userMenu.classList.add('hidden');
+                    }
+                }
+                
+                // 通知ドロップダウン
+                const notificationButton = document.querySelector('[aria-label="通知"]');
+                const notificationMenu = notificationButton?.nextElementSibling;
+                
+                if (notificationButton && notificationMenu) {
+                    if (event.target === notificationButton || notificationButton.contains(event.target)) {
+                        // 通知ボタンがクリックされたらトグル
+                        const isExpanded = notificationButton.getAttribute('aria-expanded') === 'true';
+                        notificationButton.setAttribute('aria-expanded', !isExpanded);
+                        notificationMenu.classList.toggle('hidden');
+                    } else if (notificationMenu && !notificationMenu.contains(event.target)) {
+                        // メニュー外がクリックされたら閉じる
+                        notificationButton.setAttribute('aria-expanded', 'false');
+                        notificationMenu.classList.add('hidden');
+                    }
+                }
+            });
+
+            // 画面サイズ変更時の処理
+            function handleResize() {
+                const sidebar = document.querySelector('.w-64');
+                const overlay = document.getElementById('mobileOverlay');
+                
+                if (window.innerWidth >= 1024) {
+                    // デスクトップサイズではメニューを表示
+                    if (sidebar) sidebar.classList.remove('open');
+                    if (overlay) overlay.classList.remove('active');
+                    document.body.classList.remove('overflow-hidden');
+                }
+            }
+            
+            // リサイズイベントリスナー
+            window.addEventListener('resize', handleResize);
+            
+            // 初期表示時に一度実行
+            handleResize();
+
+            // 接続状態の監視
+            function updateOnlineStatus() {
+                const statusElement = document.getElementById('connection-status');
+                if (!statusElement) return;
+                
+                if (navigator.onLine) {
+                    statusElement.textContent = 'オンライン';
+                    statusElement.className = 'fixed top-0 right-4 bg-green-500 text-white px-3 py-1 rounded-b text-sm z-40';
+                    statusElement.innerHTML = '<i class="fas fa-wifi"></i> オンライン';
+                    
+                    // 3秒後に非表示にする
+                    setTimeout(() => {
+                        statusElement.style.transition = 'opacity 0.5s ease';
+                        statusElement.style.opacity = '0';
+                        
+                        // アニメーション完了後に非表示にする
+                        setTimeout(() => {
+                            statusElement.classList.add('hidden');
+                        }, 500);
+                    }, 3000);
+                } else {
+                    statusElement.textContent = 'オフライン';
+                    statusElement.className = 'fixed top-0 right-4 bg-red-500 text-white px-3 py-1 rounded-b text-sm z-40';
+                    statusElement.innerHTML = '<i class="fas fa-wifi-slash"></i> オフライン';
+                    statusElement.classList.remove('hidden');
+                    statusElement.style.opacity = '1';
+                }
+            }
+            
+            // オンライン/オフラインイベントをリッスン
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            
+            // 初期状態を設定
+            updateOnlineStatus();
+            
+            // 定期的に接続状態をチェック（30秒ごと）
+            setInterval(updateOnlineStatus, 30000);
+            
+            // ログアウト処理
+            const logoutButtons = document.querySelectorAll('#logout-btn, #logout-btn-dropdown');
+            logoutButtons.forEach(button => {
+                if (button) {
+                    button.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        try {
+                            // ログアウト処理をここに実装
+                            // 例: await supabase.auth.signOut();
+                            window.location.href = '../login.html';
+                        } catch (error) {
+                            console.error('ログアウトエラー:', error);
+                            showErrorBanner('ログアウト中にエラーが発生しました: ' + error.message);
+                        }
+                    });
+                }
+            });
+            
+            // ユーザー情報の表示
+            async function loadUserProfile() {
+                try {
+                    // ユーザー情報を取得して表示
+                    // 例: const { data: { user } } = await supabase.auth.getUser();
+                    const userEmail = 'admin@example.com'; // 実際にはSupabaseから取得
+                    const userName = '管理者'; // 実際にはユーザープロファイルから取得
+                    
+                    document.getElementById('user-email').textContent = userEmail;
+                    
+                    // アバターの初期を設定
+                    const avatar = document.getElementById('user-avatar');
+                    if (avatar) {
+                        avatar.alt = userName;
+                        // アバターURLが設定されていない場合はイニシャルを表示
+                        if (!avatar.src || avatar.src.includes('ui-avatars.com')) {
+                            avatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=4f46e5&color=fff`;
+                        }
+                    }
+                } catch (error) {
+                    console.error('ユーザー情報の読み込みに失敗しました:', error);
+                }
+            }
+            
+            // ページ読み込み時にユーザー情報を読み込む
+            loadUserProfile();
+        });
+
         // 基本設定管理システム
         class GeneralSettingsApp {
             constructor() {
